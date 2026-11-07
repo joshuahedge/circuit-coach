@@ -125,6 +125,11 @@ export function weekView(app) {
         h('p', { class: 'small' }, 'In Safari, tap Share, then Add to Home Screen. Open it from the home screen from then on: Safari tabs keep their own separate data.'),
         h('button', { class: 'link', type: 'button', onclick: () => app.update((x) => ({ ...x, settings: { ...x.settings, installHintDismissed: true } })) }, 'Got it')) : null,
 
+      block.phase === 'review' ? h('div', { class: 'card accent-strength' },
+        h('h3', null, `Block ${block.number} finished`),
+        h('p', { class: 'small muted' }, `See how the 8 weeks went and plan block ${block.number + 1}: only what needs changing, each change your call.`),
+        h('button', { class: 'btn strength block', type: 'button', onclick: () => app.go('#/coach/block') }, 'Review the block')) : null,
+
       nextCard(app, m),
 
       quickCheckin(app),

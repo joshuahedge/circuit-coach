@@ -1,7 +1,7 @@
 // Coach: suggestions with Accept / Edit / Reject, notes, block review, plan history, summary for Claude.
 import { h, fill, topbar, stepper, field } from './dom.js';
 import { openSheet, confirmSheet } from './sheet.js';
-import { coachReview, acceptSuggestion, rejectSuggestion, dismissNote, startNextBlock, canUndoDecision, undoDecision } from '../coach.js';
+import { coachReview, acceptSuggestion, rejectSuggestion, dismissNote, canUndoDecision, undoDecision } from '../coach.js';
 import { currentPlan, prescriptionLabel, revertPlan, tempoLabel } from '../plan.js';
 import { EXERCISES } from '../library.js';
 import { buildSummary } from '../summary.js';
@@ -138,13 +138,7 @@ function noteCard(app, n) {
   const actions = [];
   if (n.action === 'benchmark') actions.push(h('button', { class: 'btn primary', type: 'button', onclick: () => app.go('#/log/benchmark') }, 'Log tests'));
   if (n.action === 'start-block') {
-    actions.push(h('button', {
-      class: 'btn primary', type: 'button',
-      onclick: async () => {
-        const ok = await confirmSheet(app, { title: 'Start the next block?', text: 'Week 1 starts this week. The first two weeks hold steady while you settle in.', confirmLabel: 'Start next block' });
-        if (ok) app.update((x) => startNextBlock(x, today), 'Next block started');
-      },
-    }, 'Start next block'));
+    actions.push(h('button', { class: 'btn primary', type: 'button', onclick: () => app.go('#/coach/block') }, 'Review and plan the next block'));
   }
   // The block review stays until the next block starts: dismissing it would leave the coach in review.
   if (n.kind !== 'block') actions.push(h('button', { class: 'btn', type: 'button', onclick: () => app.update((x) => dismissNote(x, n, today)) }, 'Got it'));
@@ -206,6 +200,7 @@ export function coachView(app) {
           h('p', null, 'An exercise steps up only when your last two workouts of it hit the top of the range on every set, with 2 or more reps in reserve (or a session effort of 7 or less), no pain, and recovery looks fine.'),
           h('p', null, 'Weeks 1–2: no increases. Weeks 3–4: add 1–2 reps. Weeks 5–6: change one thing: slower lowering, longer pause, a harder version or an extra set (only if the session stays within 40 minutes). Weeks 7–8: hold or add a rep, then benchmark tests.'),
           h('p', null, 'It eases off first when you flag pain, miss reps twice, rate two sessions 9 or more, or say sore legs affected a run. At most two changes per session at a time, and never just because a week has passed. Nothing changes until you accept it.'))),
+      b.week >= 7 && b.phase !== 'review' ? h('button', { class: 'link', type: 'button', onclick: () => app.go('#/coach/block') }, `Preview the block ${b.number} review`) : null,
       h('button', { class: 'btn block', type: 'button', onclick: () => copySummary(app) }, 'Copy summary for Claude'),
       h('div', { class: 'section-title' }, 'Plan history'),
       history(app)));

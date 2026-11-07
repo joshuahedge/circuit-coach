@@ -12,6 +12,15 @@
 > - Each exercise's How to shows an openly licensed picture (stored in the app, credited on screen and in
 >   `assets/exercises/CREDITS.md`).
 > - Storage keeps the same keys and backup format; old run data in a backup is ignored.
+> - Block review (added the same evening, owner chose "only what needs it"): after week 8 the coach's note and a
+>   Week card open a review screen (src/blockReview.js, src/ui/blockReview.js). It shows sessions done vs planned,
+>   average effort, each exercise's first and last average, step-ups and pain flags, and benchmarks start vs
+>   latest. Proposals, each switchable, at most two per session, one per exercise, by priority: repeated pain
+>   (2+ flags) → swap to the exercise's first alternative; session average over 42 min → one set fewer on the
+>   biggest exercise; stalled (4+ workouts, no step-up, no pain) → 1 s slower lowering and range −2 (holds: next
+>   version); session average under 30 min with every session done → one more set where it fits 40 min. Under
+>   75 % of planned sessions done → no changes, a note to repeat the plan. Starting applies the kept changes as
+>   one plan version ("Block N plan: …") and starts the block (Undo in the toast).
 
 Approved in chat on 7 Nov 2026. Source: a private training brief (kept out of this public repo). This spec
 records what the app must do and the decisions made with the owner. Personal body measurements are never

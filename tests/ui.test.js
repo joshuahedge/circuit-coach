@@ -3,6 +3,7 @@ import { createApp } from '../src/app.js';
 import { memoryStorage, saveState, makeBackup, emptyState } from '../src/store.js';
 import { currentPlan } from '../src/plan.js';
 import { setupState, addLog, addCheckin } from './fixtures.js';
+import { addDays } from '../src/dates.js';
 
 function mount(state, today = '2026-11-20') {
   const root = document.getElementById('mount');
@@ -331,19 +332,41 @@ describe('ui: coach and plan', () => {
     expect(app.restore('nope').ok).toBe(false);
   });
 
-  it('the block review cannot be dismissed, only acted on', async () => {
+  it('the block review cannot be dismissed, only acted on', () => {
     const { app, root } = mount(setupState(), '2027-01-01');
     app.go('#/coach');
     const card = [...root.querySelectorAll('.card')].find((c) => c.textContent.includes('Block 1 finished'));
-    expect(Boolean(btn(card, 'Start next block'))).toBe(true);
     expect(btn(card, 'Got it')).toBe(undefined);
-    btn(card, 'Start next block').click();
-    await tick();
-    root.querySelector('[data-confirm]').click();
-    await tick();
+    btn(card, 'Review and plan the next block').click();
+    expect(app.route.name).toBe('block');
+    expect(root.textContent).toContain('How each exercise went');
+    click(root, 'Start block 2');
     expect(app.state.block.number).toBe(2);
+    expect(app.state.plans.length).toBe(1);
   });
 
+  it('block review: switch a change off, start, then undo', () => {
+    const s = setupState();
+    for (let w = 0; w < 8; w++) {
+      const mon = addDays('2026-11-02', 7 * w);
+      addLog(s, 'A', addDays(mon, 1));
+      addLog(s, 'B', addDays(mon, 3));
+    }
+    const { app, root } = mount(s, '2027-01-01');
+    expect(root.textContent).toContain('Block 1 finished');
+    click(root, 'Review the block');
+    expect(root.textContent).toContain('Changes for block 2');
+    expect(btn(root, 'Start block 2 with 4 changes')).toBeTruthy();
+    click(root, 'Keep: Reverse lunge: a fresh challenge');
+    click(root, 'Start block 2 with 3 changes');
+    expect(app.state.block.number).toBe(2);
+    expect(app.state.plans.length).toBe(2);
+    expect(currentPlan(app.state).sessions.A.exercises[0].tempoDown).toBe(2);
+    expect(currentPlan(app.state).sessions.A.exercises[1].tempoDown).toBe(3);
+    click(root.querySelector('.toast'), 'Undo');
+    expect(app.state.block.number).toBe(1);
+    expect(app.state.plans.length).toBe(1);
+  });
   it('erase and restore can be undone', () => {
     const s = setupState();
     addLog(s, 'A', '2026-11-03');

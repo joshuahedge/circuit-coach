@@ -20,10 +20,11 @@ async function boot() {
   let now;
   if (params.has('demo')) {
     // Screenshot mode: sample data in memory only; the saved data is never touched.
-    const { demoStorage, DEMO_NOW } = await import('./dev/demo.js');
+    const { demoStorage, demoNow } = await import('./dev/demo.js');
     storage = demoStorage(params.get('demo'));
     const bootMs = Date.now();
-    now = () => new Date(DEMO_NOW.getTime() + (Date.now() - bootMs)); // the sample date, ticking in real time
+    const start = demoNow(params.get('demo')).getTime();
+    now = () => new Date(start + (Date.now() - bootMs)); // the sample date, ticking in real time
     ok = true;
   }
   const app = createApp({ root: document.getElementById('root'), storage, ...(now ? { now } : {}) });

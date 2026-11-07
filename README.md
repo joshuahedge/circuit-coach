@@ -47,7 +47,11 @@ An exercise steps up only when the last two workouts of it hit the top of the ra
 or more reps in reserve (or session effort 7 or less), no pain, and recovery looks fine. Each 8-week block:
 weeks 1–2 hold steady; weeks 3–4 add reps; weeks 5–6 change one thing (slower lowering, longer pause, a
 harder version such as press-up → close-grip → archer, or an extra set if the session stays within 40
-minutes); weeks 7–8 hold and test; then you start the next block. It eases off first when you report
+minutes); weeks 7–8 hold and test. Then a **block review** shows how the 8 weeks went (sessions done,
+each exercise's trend and step-ups, benchmarks) and proposes changes for the next block, only where
+something needs it: a fresh challenge for a stalled exercise, a gentler swap after repeated pain, or a set
+fewer or more if sessions ran long or short. You switch each change on or off before starting the next
+block (Undo afterwards, and every plan version is kept). It eases off first when you report
 pain, miss reps, rate sessions 9+ or report high leg soreness. At most two changes per session at a time.
 Nothing changes until you accept it.
 
@@ -61,7 +65,7 @@ No Node and no build step: plain HTML, CSS and JavaScript modules.
 - Serve locally: `python tests/serve.py 8765 .` then open http://localhost:8765/?nosw=1
   (`?nosw=1` skips the offline cache while developing).
 - Sample data for checking screens, in memory only: `?demo=1` (four weeks in), `?demo=fresh`
-  (first run), `?demo=logging` (a session in progress).
+  (first run), `?demo=logging` (a session in progress), `?demo=review` (a finished block).
 - After changing any app file, run `tools/sw-files.ps1` to refresh the offline file list and build
   stamp; a test fails if you forget.
 - Icons: `python tools/icons.py`.

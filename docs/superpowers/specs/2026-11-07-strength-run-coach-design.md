@@ -41,8 +41,9 @@ A personal web app, installed on an iPhone from Safari (Share, then Add to Home 
 weekly bodyweight strength sessions alongside three weekly runs. It logs workouts, runs and recovery, shows
 progress, and suggests plan changes with reasons the owner accepts, edits or rejects.
 
-- Hosting: public repo `joshuahedge/strength-run-coach`, GitHub Pages from `main` at `/`, live at
-  `https://joshuahedge.github.io/strength-run-coach/`. Creating the repo and every push needs the owner's go.
+- Hosting: public repo `joshuahedge/circuit-coach` (named after the renamed app; first planned as
+  `strength-run-coach`), GitHub Pages from `main` at `/`, live at
+  `https://joshuahedge.github.io/circuit-coach/`. Creating the repo and every push needs the owner's go.
 - No build step, no Node: plain HTML, CSS and JavaScript modules, like the owner's other personal project.
 - Works offline after the first visit (service worker caches every app file).
 - All data lives on the phone (browser storage of the installed app). Backup and restore through a JSON file.

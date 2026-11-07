@@ -4,6 +4,8 @@ A personal web app for two bodyweight circuit sessions a week. It runs each sess
 every set, shows progress, and suggests plan changes with the evidence behind them. You accept, edit or
 reject every change. It works offline and installs on an iPhone from Safari.
 
+Live: https://joshuahedge.github.io/circuit-coach/
+
 ## Install on an iPhone
 
 1. Open the app's link in **Safari** (not Chrome).

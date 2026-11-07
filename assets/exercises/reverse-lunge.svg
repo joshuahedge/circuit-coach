@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300" role="img" aria-label="Reverse lunge: stand tall, then step one foot back and lower until both knees bend to about 90 degrees">
+  <rect width="600" height="300" rx="16" fill="#fff"/>
+  <g stroke="#d6dbe2" stroke-width="4"><line x1="20" y1="262" x2="580" y2="262"/><line x1="300" y1="24" x2="300" y2="250" stroke-dasharray="6 8"/></g>
+  <g fill="none" stroke="#12161c" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+    <!-- 1: standing tall -->
+    <polyline points="150,84 150,160"/>
+    <polyline points="146,160 144,210 144,256"/>
+    <polyline points="156,160 158,210 160,256"/>
+    <polyline points="152,98 176,128 160,112"/>
+    <!-- 2: lunge, front leg -->
+    <polyline points="430,112 424,188"/>
+    <polyline points="424,188 484,190 484,256"/>
+    <polyline points="430,124 456,140 442,128"/>
+  </g>
+  <!-- 2: back leg stepped back (the moving leg) -->
+  <polyline points="424,188 398,250 352,238 340,256" fill="none" stroke="#e5641f" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <g fill="#12161c"><circle cx="150" cy="62" r="18"/><circle cx="432" cy="90" r="18"/></g>
+  <path d="M470 222 C 440 206, 400 206, 372 214" fill="none" stroke="#e5641f" stroke-width="4" stroke-dasharray="2 8" stroke-linecap="round"/>
+  <path d="M372 214 l14 -10 m-14 10 l16 6" fill="none" stroke="#e5641f" stroke-width="4" stroke-linecap="round"/>
+  <g font-family="-apple-system, system-ui, sans-serif" font-size="19" fill="#5b6472" text-anchor="middle">
+    <text x="150" y="288">1. Stand tall</text>
+    <text x="450" y="288">2. Step back, both knees ~90°</text>
+  </g>
+</svg>

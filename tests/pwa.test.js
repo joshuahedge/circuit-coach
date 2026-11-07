@@ -23,6 +23,10 @@ describe('pwa', () => {
     expect(sw).toContain(`// build ${build}`);
     expect(files.includes('./src/main.js')).toBe(true);
     expect(files.includes('./icons/apple-touch-icon.png')).toBe(true);
+    const { EXERCISES } = await import('../src/library.js');
+    for (const ex of Object.values(EXERCISES)) {
+      for (const x of ex.image.srcs) expect(files.includes(`./${x.src}`)).toBe(true);
+    }
   });
 
   it('manifest and page are installable on iPhone', async () => {

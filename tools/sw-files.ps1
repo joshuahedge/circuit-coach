@@ -11,6 +11,10 @@ try {
     $_.FullName.Substring($root.Length + 1).Replace('\', '/')
   } | Sort-Object
   $files += Get-ChildItem -Path icons -Filter *.png -File | Sort-Object Name | ForEach-Object { "icons/$($_.Name)" }
+  if (Test-Path assets/exercises) {
+    $files += Get-ChildItem -Path assets/exercises -File | Where-Object { $_.Extension -in '.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg' } |
+      Sort-Object Name | ForEach-Object { "assets/exercises/$($_.Name)" }
+  }
 
   $sha = [System.Security.Cryptography.SHA256]::Create()
   $lines = foreach ($f in $files) {

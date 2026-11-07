@@ -219,6 +219,55 @@ export const EXERCISES = {
   },
 };
 
+// Pictures for each exercise's How to. Downloaded once from their sources, resized, and stored in the app
+// so they work offline. Licences were checked on each file's own page; full details in
+// assets/exercises/CREDITS.md. Drawings marked "own" were made for this app.
+const BYSA3 = { license: 'CC BY-SA 3.0', licenseUrl: 'https://creativecommons.org/licenses/by-sa/3.0/' };
+const BYSA4 = { license: 'CC BY-SA 4.0', licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0/' };
+const OWN = { credit: 'drawing made for this app', own: true };
+const IMAGES = {
+  'reverse-lunge': { ...OWN, srcs: [{ src: 'assets/exercises/reverse-lunge.svg', w: 600, h: 300 }], alt: 'Stand tall, then step one foot back and lower until both knees bend to about 90 degrees.' },
+  'press-up': {
+    ...BYSA3, credit: 'Everkinetic', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Push_ups_1.svg',
+    srcs: [{ src: 'assets/exercises/press-up-1.svg', w: 1200, h: 669 }, { src: 'assets/exercises/press-up-2.svg', w: 1200, h: 669 }],
+    alt: 'Press-up: arms straight with the body in one line, then lowered until the chest is just off the floor.',
+  },
+  'sl-glute-bridge': {
+    ...BYSA3, credit: 'Klewis425', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Single_Leg_Bridge.jpg', changes: 'resized',
+    srcs: [{ src: 'assets/exercises/sl-glute-bridge.jpg', w: 740, h: 552 }],
+    alt: 'Single-leg glute bridge: lying on the back, one foot planted, hips lifted, the other leg raised straight.',
+  },
+  'prone-ytw': { ...OWN, srcs: [{ src: 'assets/exercises/prone-ytw.svg', w: 600, h: 320 }], alt: 'Seen from above, lying face down: arms raised in a Y overhead, a T out to the sides, and a W with elbows bent.' },
+  'dead-bug': { ...OWN, srcs: [{ src: 'assets/exercises/dead-bug.svg', w: 600, h: 300 }], alt: 'Dead bug: on the back with arms up and knees over hips, then the opposite arm and leg lowered towards the floor.' },
+  'sl-rdl': {
+    ...BYSA4, credit: 'Robert Lindermayr', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Tuladandasana_-_Virabhadrasana_III_(cropped).jpg', changes: 'resized',
+    note: 'Shown as the yoga pose Warrior III, the same single-leg hinge. Your arms can hang down instead.',
+    srcs: [{ src: 'assets/exercises/sl-rdl.jpg', w: 800, h: 600 }],
+    alt: 'Balancing on one leg, hinged forward at the hip with the body and back leg in a straight line.',
+  },
+  'tempo-squat': {
+    ...BYSA4, credit: 'wger.de exercise database (AI-generated drawing)', sourceUrl: 'https://wger.de/media/exercise-images/1963/db285682-1ab3-4be0-ae00-5117ecce1ee6.png', changes: 'resized, greyscale',
+    srcs: [{ src: 'assets/exercises/tempo-squat.png', w: 800, h: 581 }],
+    alt: 'Bodyweight squat: standing tall, then sitting down with arms forward until the thighs are about parallel to the floor.',
+  },
+  'pike-push-up': {
+    ...BYSA4, credit: 'wger.de exercise database (AI-generated drawing)', sourceUrl: 'https://wger.de/media/exercise-images/454/447f3c17-405f-46e0-b138-65c2a8caaab0.png', changes: 'resized, greyscale',
+    srcs: [{ src: 'assets/exercises/pike-push-up.png', w: 800, h: 581 }],
+    alt: 'Pike push-up: hips high in an upside-down V, then elbows bent to lower the head towards the floor.',
+  },
+  'sl-calf-raise': {
+    ...BYSA3, credit: 'Bessieeboo', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Eccentric_Exercise.png', changes: 'converted to JPEG',
+    srcs: [{ src: 'assets/exercises/sl-calf-raise.jpg', w: 459, h: 187 }],
+    alt: 'Single-leg calf raise: rising onto the ball of one foot, then lowering slowly.',
+  },
+  'side-plank': {
+    ...BYSA3, credit: 'Jaykayfit', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Side_Plank.jpg', changes: 'resized',
+    srcs: [{ src: 'assets/exercises/side-plank.jpg', w: 720, h: 720 }],
+    alt: 'Side plank: lying on one side on the forearm, then lifting the hips so the body is straight.',
+  },
+};
+for (const [id, image] of Object.entries(IMAGES)) EXERCISES[id].image = image;
+
 // Used by the benchmark screen and tests, not programmed in a session.
 export const FRONT_PLANK_NOTE = 'Front plank: forearms down, body in one line, strict form. Cap the test at 2 minutes.';
 

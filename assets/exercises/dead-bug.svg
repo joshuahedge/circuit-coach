@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300" role="img" aria-label="Dead bug: lying on your back with arms pointing up and knees over hips, then lower the opposite arm and leg towards the floor">
+  <rect width="600" height="300" rx="16" fill="#fff"/>
+  <g stroke="#d6dbe2" stroke-width="4"><line x1="20" y1="236" x2="580" y2="236"/><line x1="300" y1="24" x2="300" y2="226" stroke-dasharray="6 8"/></g>
+  <g fill="none" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+    <!-- 1: start, arms up, knees over hips (far limbs lighter) -->
+    <g stroke="#b7bec8"><polyline points="104,214 110,124"/><polyline points="204,214 212,146 270,150"/></g>
+    <g stroke="#12161c"><polyline points="84,218 214,218"/><polyline points="100,214 100,120"/><polyline points="210,214 210,142 268,142"/></g>
+    <!-- 2: lower the opposite arm and leg -->
+    <g stroke="#b7bec8"><polyline points="404,214 404,120"/><polyline points="504,214 504,142 562,142"/></g>
+    <g stroke="#12161c"><polyline points="384,218 514,218"/></g>
+    <g stroke="#e5641f"><polyline points="398,214 318,204"/><polyline points="510,214 588,206"/></g>
+  </g>
+  <g fill="#12161c"><circle cx="62" cy="208" r="18"/><circle cx="362" cy="208" r="18"/></g>
+  <g font-family="-apple-system, system-ui, sans-serif" font-size="19" fill="#5b6472" text-anchor="middle">
+    <text x="150" y="272">1. Arms up, knees over hips</text>
+    <text x="450" y="272">2. Lower opposite arm and leg</text>
+    <text x="300" y="294" font-size="15">Keep your lower back pressed into the mat</text>
+  </g>
+</svg>

@@ -1,4 +1,4 @@
-/* Strength & Running Coach. Phone-first; light and dark follow the system. */
+/* Circuit Coach. Phone-first; light and dark follow the system. */
 :root {
   color-scheme: light dark;
   --bg: #f3f4f6;
@@ -247,6 +247,13 @@ textarea { min-height: 80px; resize: vertical; }
 .ex-head .cue { font-size: .86rem; color: var(--muted); margin-top: 2px; }
 .howto { margin: 6px 16px 8px; padding: 10px 12px; background: var(--surface-2); border-radius: 12px; font-size: .9rem; }
 .howto ol { margin: 0; padding-left: 18px; }
+.ex-fig { margin: 8px 0 10px; }
+.ex-fig-imgs { display: grid; gap: 6px; }
+.ex-fig.pair .ex-fig-imgs { grid-template-columns: 1fr 1fr; }
+.ex-fig img { display: block; width: 100%; height: auto; max-height: 260px; object-fit: contain; border-radius: 12px; background: #fff; }
+.ex-fig figcaption { font-size: .72rem; color: var(--muted); margin-top: 4px; line-height: 1.35; }
+.ex-fig figcaption .note { display: block; color: var(--ink); font-size: .82rem; margin-bottom: 2px; }
+.ex-fig figcaption a, .list-item a { color: var(--run); }
 .setgroup { padding: 4px 12px 2px; }
 .setgroup + .setgroup { border-top: 1px solid var(--line); }
 .setrow { display: grid; grid-template-columns: 46px 134px 1fr; align-items: center; gap: 6px; padding: 5px 6px; min-height: 54px; }

@@ -1,6 +1,7 @@
 // Plan: sessions and exercises, schedule, profile, and data (backup, restore, reset).
 import { h, fill, ICONS, topbar, field, numberInput } from './dom.js';
 import { dayOf, sessionDayPickers, withSessionDay } from './days.js';
+import { exerciseFigure, imageCredits } from './figure.js';
 import { openSheet, confirmSheet } from './sheet.js';
 import { openRxEditor, copySummary } from './coach.js';
 import { EXERCISES, WARMUPS, COOLDOWN, REST_NOTE, LIMITATION_NOTE, SAFETY_NOTE } from '../library.js';
@@ -19,6 +20,7 @@ function changePlan(app, sessionId, from, to, reason) {
 function exerciseSheet(app, sessionId, p) {
   const ex = EXERCISES[p.exerciseId];
   openSheet(app, p.variation, (close) => h('div', null,
+    exerciseFigure(p.exerciseId),
     h('div', { class: 'card' },
       h('div', { class: 'strong', style: { color: 'var(--strength)' } }, [prescriptionLabel(p), tempoLabel(p)].filter(Boolean).join(' · ')),
       h('p', { class: 'small muted' }, `${ex.cues} Set since ${formatShort(p.since)}.`),
@@ -202,5 +204,6 @@ export function planView(app) {
       h('button', { class: 'btn block', type: 'button', onclick: () => copySummary(app) }, 'Copy summary for Claude'),
       h('div', { style: { height: '10px' } }),
       h('button', { class: 'btn danger block', type: 'button', onclick: () => resetAll(app) }, 'Erase all data'),
+      imageCredits() ? [h('div', { class: 'section-title' }, 'Image credits'), imageCredits()] : null,
       h('p', { class: 'tiny muted', style: { textAlign: 'center', marginTop: '18px' } }, `Circuit Coach ${APP_VERSION}`)));
 }

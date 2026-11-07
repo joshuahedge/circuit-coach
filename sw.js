@@ -3,7 +3,7 @@
 // drops older caches when it takes over. A waiting worker takes over when the page posts 'skipWaiting'.
 // The build line below is rewritten by tools/sw-files.ps1 so this file changes with every build, which
 // is what makes every browser notice an update.
-// build ec95ce03c3b6
+// build 16d7a49e6ddd
 importScripts('./sw-files.js');
 
 const CACHE = `coach-${self.COACH_BUILD}`;
@@ -25,7 +25,8 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.includes('/__')) return;
   event.respondWith(
     caches.match(event.request, { ignoreSearch: true })
-      .then((hit) => hit || (event.request.mode === 'navigate' ? caches.match('./index.html') : null))
+      // Offline, opening the app (its folder or index.html) falls back to the cached page; other URLs do not.
+      .then((hit) => hit || (event.request.mode === 'navigate' && /\/(index\.html)?$/.test(url.pathname) ? caches.match('./index.html') : null))
       .then((hit) => hit || fetch(event.request)),
   );
 });

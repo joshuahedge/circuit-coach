@@ -24,6 +24,21 @@ describe('library', () => {
     expect(allNames().filter(isBannedName)).toEqual([]);
   });
 
+  it('every exercise has a credited picture with a description', () => {
+    for (const ex of Object.values(EXERCISES)) {
+      const im = ex.image;
+      expect(Boolean(im && im.srcs && im.srcs.length)).toBe(true);
+      expect(im.alt.length).toBeGreaterThan(20);
+      for (const x of im.srcs) expect(/^assets\/exercises\/[a-z0-9-]+\.(svg|jpg|png)$/.test(x.src)).toBe(true);
+      if (!im.own) {
+        expect(/^CC BY(-SA)? [0-9.]+$/.test(im.license)).toBe(true);
+        expect(im.licenseUrl.startsWith('https://creativecommons.org/licenses/')).toBe(true);
+        expect(im.sourceUrl.startsWith('https://')).toBe(true);
+        expect(im.credit.length).toBeGreaterThan(2);
+      }
+    }
+  });
+
   it('every exercise has how-to steps, a ladder and swaps', () => {
     for (const ex of Object.values(EXERCISES)) {
       expect(ex.howTo.length).toBeGreaterThan(1);

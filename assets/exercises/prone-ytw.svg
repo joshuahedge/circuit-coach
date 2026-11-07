@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 320" role="img" aria-label="Prone Y, T and W raises seen from above: lying face down, arms raised into a Y overhead, a T out to the sides, and a W with elbows bent and pulled down">
+  <rect width="600" height="320" rx="16" fill="#fff"/>
+  <g fill="none" stroke-width="13" stroke-linecap="round" stroke-linejoin="round">
+    <!-- bodies, seen from above, lying face down -->
+    <g stroke="#12161c">
+      <polyline points="100,92 100,196"/><polyline points="76,100 124,100"/><polyline points="94,196 88,268"/><polyline points="106,196 112,268"/>
+      <polyline points="300,92 300,196"/><polyline points="276,100 324,100"/><polyline points="294,196 288,268"/><polyline points="306,196 312,268"/>
+      <polyline points="500,92 500,196"/><polyline points="476,100 524,100"/><polyline points="494,196 488,268"/><polyline points="506,196 512,268"/>
+    </g>
+    <!-- arms: Y, T, W -->
+    <g stroke="#e5641f">
+      <polyline points="76,100 34,34"/><polyline points="124,100 166,34"/>
+      <polyline points="276,100 206,100"/><polyline points="324,100 394,100"/>
+      <polyline points="476,102 444,138 432,88"/><polyline points="524,102 556,138 568,88"/>
+    </g>
+  </g>
+  <g fill="#12161c"><circle cx="100" cy="70" r="17"/><circle cx="300" cy="70" r="17"/><circle cx="500" cy="70" r="17"/></g>
+  <g font-family="-apple-system, system-ui, sans-serif" fill="#5b6472" text-anchor="middle">
+    <text x="100" y="300" font-size="28" font-weight="700" fill="#12161c">Y</text>
+    <text x="300" y="300" font-size="28" font-weight="700" fill="#12161c">T</text>
+    <text x="500" y="300" font-size="28" font-weight="700" fill="#12161c">W</text>
+    <text x="300" y="22" font-size="15">Lying face down, seen from above</text>
+  </g>
+</svg>

@@ -1,6 +1,7 @@
 // Strength session: preview, then the set-by-set logger. Every tap saves the draft.
 import { h, append, ICONS, topbar, stepper, scaleChips, toggle, field, group, numberInput } from './dom.js';
 import { workoutDock, openTimerSettings, timerSettings } from './dock.js';
+import { exerciseFigure } from './figure.js';
 import { unlockSound } from './sound.js';
 import { completeSet, upNext } from '../timer.js';
 import { openSheet, confirmSheet } from './sheet.js';
@@ -18,6 +19,7 @@ function howTo(exerciseId) {
   const ex = EXERCISES[exerciseId];
   return h('details', { class: 'howto' },
     h('summary', null, 'How to'),
+    exerciseFigure(exerciseId),
     h('ol', null, ex.howTo.map((t) => h('li', null, t))));
 }
 

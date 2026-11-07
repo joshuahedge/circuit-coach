@@ -1,5 +1,18 @@
 # Strength & Running Coach: design
 
+> **Revision, 7 Nov 2026 (later the same day): running removed. The app is now "Circuit Coach".** The owner
+> asked to drop running and focus on the circuit sessions. Everything below about run days, run types, run
+> logging, run protection (lighter Session B before a long run), the 10K benchmark, pace and km charts, and
+> the run-based coach rules (sore legs affected a run, runs feeling harder, weekly km jumps) no longer
+> applies. What replaced it:
+> - Schedule: two training days chosen at setup (default Tuesday A, Friday B); the only schedule warning is
+>   back-to-back days. Sessions always run as circuits (no "one exercise at a time" option).
+> - Coach: leg increases pause only on check-in leg soreness of 4 or more; all other rules unchanged.
+> - Week: sessions this week and sessions this block. Progress: consistency, exercises, effort, benchmarks.
+> - Each exercise's How to shows an openly licensed picture (stored in the app, credited on screen and in
+>   `assets/exercises/CREDITS.md`).
+> - Storage keeps the same keys and backup format; old run data in a backup is ignored.
+
 Approved in chat on 7 Nov 2026. Source: a private training brief (kept out of this public repo). This spec
 records what the app must do and the decisions made with the owner. Personal body measurements are never
 written into the code or this repo: the owner enters them on the phone.

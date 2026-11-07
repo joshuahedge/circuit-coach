@@ -1,0 +1,4 @@
+.superpowers/
+*.tmp
+__pycache__/
+.claude/

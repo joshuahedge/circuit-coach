@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Coach tests</title>
+<style>
+  body { font: 14px/1.5 ui-monospace, Consolas, monospace; margin: 16px; background: #fff; color: #111; }
+  #results { white-space: pre-wrap; }
+  #mount { position: absolute; left: -10000px; top: 0; width: 375px; }
+</style>
+</head>
+<body>
+<pre id="results">RUNNING</pre>
+<div id="mount"></div>
+<script type="module">
+  const out = document.getElementById('results');
+  try {
+    const { run } = await import('./harness.js');
+    await import('./all.js');
+    const grep = new URLSearchParams(location.search).get('grep') || '';
+    await run(grep);
+  } catch (e) {
+    out.textContent = 'LOAD ERROR\n' + (e && e.stack ? e.stack : String(e));
+    document.title = 'FAIL';
+  }
+  // Hand the result text to tests/serve.py, which the command-line runner polls. A failed POST is ignored.
+  try { await fetch('/__results', { method: 'POST', body: out.textContent }); } catch (e) { /* ignore */ }
+</script>
+</body>
+</html>

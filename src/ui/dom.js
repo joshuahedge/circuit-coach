@@ -70,7 +70,8 @@ export function topbar(title, { sub = null, back = null, right = null } = {}) {
 // when allowClear is set.
 export function chips({ options, value, onChange, label, scale = false, allowClear = false }) {
   const wrap = h('div', { class: `chips${scale ? ' scale' : ''}`, role: 'group', 'aria-label': label || null });
-  if (scale) wrap.style.setProperty('--n', String(options.length));
+  // Up to 6 options in one row; 1–10 goes in two rows of 5 so every button stays thumb-sized.
+  if (scale) wrap.style.setProperty('--n', String(options.length > 6 ? 5 : options.length));
   let current = value;
   const buttons = options.map((o) => {
     const b = h('button', { type: 'button', class: 'chip', 'aria-pressed': String(o.value === current), dataset: { value: String(o.value) } }, o.label);

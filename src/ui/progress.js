@@ -8,6 +8,8 @@ import { formatShort } from '../dates.js';
 import { formatDuration, formatPace } from '../pace.js';
 
 const paceTick = (v) => formatPace(v).replace(' /km', '');
+const dm = (iso) => `${Number(iso.slice(8, 10))}/${Number(iso.slice(5, 7))}`;
+const TYPE_ORDER = ['easy', 'long', 'tempo', 'intervals', 'other'];
 
 function card(title, sub, ...body) {
   return h('div', { class: 'card' }, h('h3', null, title), sub ? h('p', { class: 'small muted' }, sub) : null, body);
@@ -24,17 +26,17 @@ function consistency(weeks, plannedS, plannedR) {
         Array.from({ length: Math.max(plannedS, w.strength) }, (_, i) => h('i', { class: `pip${i < w.strength ? ' s' : ''}` })),
         h('div', { style: { height: '4px' } }),
         Array.from({ length: Math.max(plannedR, w.runs) }, (_, i) => h('i', { class: `pip${i < w.runs ? ' r' : ''}` })),
-        h('span', null, formatShort(w.weekStart).split(' ')[0])))),
+        h('span', null, dm(w.weekStart))))),
     h('div', { class: 'chart-legend' },
-      h('span', null, h('i', { style: { background: 'var(--strength)' } }), 'Strength (top)'),
-      h('span', null, h('i', { style: { background: 'var(--run)' } }), 'Runs (bottom)'),
+      h('span', null, h('i', { style: { background: 'var(--chart-strength)' } }), 'Strength (top)'),
+      h('span', null, h('i', { style: { background: 'var(--chart-run)' } }), 'Runs (bottom)'),
       h('span', null, h('i', { style: { background: 'var(--surface-2)' } }), 'Planned, not done')));
 }
 
 export function progressView(app) {
   const s = app.state;
   const today = app.today();
-  const ui = app.progressUi || (app.progressUi = { exercise: null, runType: 'all' });
+  const ui = app.progressUi || (app.progressUi = { exercise: null, runType: null });
   const weeks = weeklyTotals(s, today, 8);
   const plannedS = Object.keys(s.schedule.strengthDays).length;
   const plannedR = Object.keys(s.schedule.runDays).length;
@@ -46,8 +48,11 @@ export function progressView(app) {
   const variationChanges = exSeries.filter((p, i) => i > 0 && p.variation !== exSeries[i - 1].variation);
 
   const allRuns = runPaceSeries(s);
-  const types = [...new Set(allRuns.map((r) => r.runType))];
-  if (ui.runType !== 'all' && !types.includes(ui.runType)) ui.runType = 'all';
+  const types = TYPE_ORDER.filter((t) => allRuns.some((r) => r.runType === t));
+  // Mixing easy and tempo paces makes a meaningless zigzag, so start on one type with a trend to show.
+  if (ui.runType !== 'all' && !types.includes(ui.runType)) {
+    ui.runType = types.find((t) => allRuns.filter((r) => r.runType === t).length >= 2) || 'all';
+  }
   const runs = ui.runType === 'all' ? allRuns : allRuns.filter((r) => r.runType === ui.runType);
   const effort = effortSeries(s);
   const tenK = benchmarkSeries(s, 'tenKSec');
@@ -59,7 +64,7 @@ export function progressView(app) {
       card('Weekly running', `Kilometres per week. More is not automatically better.`,
         barChart({
           label: 'Kilometres run per week, last 8 weeks',
-          bars: weeks.map((w) => ({ label: formatShort(w.weekStart).split(' ')[0], value: w.km, title: `Week of ${formatShort(w.weekStart)}: ${w.km.toFixed(1)} km, ${w.runs} run${w.runs === 1 ? '' : 's'}` })),
+          bars: weeks.map((w) => ({ label: dm(w.weekStart), value: w.km, title: `Week of ${formatShort(w.weekStart)}: ${w.km.toFixed(1)} km, ${w.runs} run${w.runs === 1 ? '' : 's'}` })),
           format: (v) => (Number.isInteger(v) ? String(v) : v.toFixed(1)),
         })),
 
@@ -94,7 +99,7 @@ export function progressView(app) {
             runs.length ? lineChart({
               label: `Run pace${ui.runType === 'all' ? '' : `, ${RUN_TYPE_LABEL[ui.runType]} runs`}`,
               points: runs.map((r) => ({ date: r.date, value: r.pace, title: `${formatShort(r.date)}: ${formatPace(r.pace)}, ${Number(r.km).toFixed(1)} km ${(RUN_TYPE_LABEL[r.runType] || '').toLowerCase()}` })),
-              format: paceTick, invert: true, color: 'var(--run)', valueHeader: 'Pace /km',
+              format: paceTick, invert: true, color: 'var(--chart-run)', valueHeader: 'Pace /km',
             }) : empty('No runs of this type yet.'),
           ]
           : empty('Log a run to see your pace here.')),
@@ -111,7 +116,7 @@ export function progressView(app) {
       card('Benchmarks', 'Repeat every 4–8 weeks.',
         tenK.length > 1 ? lineChart({
           label: '10K time', points: tenK.map((t) => ({ date: t.date, value: t.value, title: `${formatShort(t.date)}: 10K in ${formatDuration(t.value)}` })),
-          format: (v) => formatDuration(v), invert: true, color: 'var(--run)', valueHeader: '10K',
+          format: (v) => formatDuration(v), invert: true, color: 'var(--chart-run)', valueHeader: '10K',
         }) : null,
         benches.length
           ? h('div', { class: 'scroll-x' }, h('table', { class: 'bench' },

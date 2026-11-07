@@ -58,7 +58,7 @@ function dataTable(rows, headers) {
 }
 
 // bars: [{ label, value, title }]
-export function barChart({ bars, format = (v) => String(v), label, color = 'var(--run)', height = 170 }) {
+export function barChart({ bars, format = (v) => String(v), label, color = 'var(--chart-run)', height = 170 }) {
   const top = 22;
   const bottom = 22;
   const left = 30;
@@ -104,7 +104,7 @@ export function barChart({ bars, format = (v) => String(v), label, color = 'var(
 }
 
 // points: [{ date, value, title }]; invert puts smaller values higher (pace: faster is up).
-export function lineChart({ points, format = (v) => String(v), label, color = 'var(--strength)', height = 180, invert = false, yMin = null, yMax = null, valueHeader = 'Value', dateFormat }) {
+export function lineChart({ points, format = (v) => String(v), label, color = 'var(--chart-strength)', height = 180, invert = false, yMin = null, yMax = null, valueHeader = 'Value', dateFormat }) {
   const top = 22;
   const bottom = 22;
   const left = 38;

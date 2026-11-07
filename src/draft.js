@@ -3,7 +3,7 @@
 import { currentPlan, sessionForToday } from './plan.js';
 
 export function targetOf(p) {
-  return { variation: p.variation, sets: p.sets, min: p.min, max: p.max, unit: p.unit, sides: p.sides, tempoDown: p.tempoDown, pause: p.pause };
+  return { variation: p.variation, sets: p.sets, min: p.min, max: p.max, unit: p.unit, sides: p.sides, tempoDown: p.tempoDown, pause: p.pause, legHeavy: p.legHeavy };
 }
 
 // Values from the most recent log of this exercise in the same variation and unit, by set and side.

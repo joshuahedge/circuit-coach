@@ -87,8 +87,8 @@ function setRow(app, e, row, onTick) {
     onChange: (v) => { row.value = v; app.save(); },
   });
   const rir = h('select', { 'aria-label': `Reps in reserve, set ${row.set}${row.side ? ` ${SIDE_LABEL[row.side]}` : ''}` },
-    h('option', { value: '' }, 'RIR'),
-    [0, 1, 2, 3, 4, 5].map((n) => h('option', { value: String(n) }, `${n} RIR`)));
+    h('option', { value: '' }, '–'),
+    [0, 1, 2, 3, 4, 5].map((n) => h('option', { value: String(n) }, String(n))));
   rir.value = row.rir === null || row.rir === undefined ? '' : String(row.rir);
   rir.addEventListener('change', () => { row.rir = rir.value === '' ? null : Number(rir.value); app.save(); });
   const tick = h('button', { type: 'button', class: 'tick', 'aria-pressed': String(row.done), 'aria-label': `Set ${row.set}${row.side ? ` ${SIDE_LABEL[row.side]}` : ''} done`, html: ICONS.check });
@@ -151,7 +151,11 @@ function exerciseCard(app, e, refresh) {
     howTo(e.exerciseId),
     skipped
       ? h('div', { class: 'ex-head' }, h('p', { class: 'small muted' }, `Skipped: ${e.reason}`))
-      : Object.keys(bySet).map((n) => h('div', { class: 'setgroup' }, bySet[n].map((row) => setRow(app, e, row, markDone)))),
+      : [
+        h('div', { class: 'setrow head', 'aria-hidden': 'true', style: { margin: '0 12px' } },
+          h('span'), h('span', null, t.unit === 'seconds' ? 'Seconds' : 'Reps'), h('span', null, 'RIR'), h('span', null, 'Done')),
+        Object.keys(bySet).map((n) => h('div', { class: 'setgroup' }, bySet[n].map((row) => setRow(app, e, row, markDone)))),
+      ],
     h('div', { class: 'ex-actions' },
       skipped
         ? h('button', { class: 'btn', type: 'button', onclick: () => { e.status = 'pending'; e.reason = ''; app.save(); app.render(); } }, 'Undo skip')
@@ -233,6 +237,8 @@ function logger(app, sessionId) {
         h('h3', null, 'Energy before you start'),
         scaleChips({ min: 1, max: 5, value: d.energyBefore, label: 'Energy before', lowLabel: 'Drained', highLabel: 'Great', onChange: (v) => { d.energyBefore = v; app.save(); } })),
       h('details', { class: 'explain' }, h('summary', null, 'Warm-up · 5 min'), h('div', null, WARMUPS[sessionId])),
+      h('p', { class: 'small muted', style: { margin: '0 4px 12px' } },
+        'Tick each set as you finish it. RIR (reps in reserve) is how many more clean reps you had left: optional, but it helps the coach.'),
       d.exercises.map((e) => exerciseCard(app, e, refresh)),
       h('details', { class: 'explain' }, h('summary', null, 'Cool-down · 4–5 min'), h('div', null, COOLDOWN)),
       effortBox,

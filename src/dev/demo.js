@@ -33,28 +33,24 @@ export function demoState(kind) {
   let s = emptyState(new Date(2026, 10, 2));
   if (kind === 'fresh') return s;
   s = buildSetupState(s, {
-    runDays: { mon: 'easy', wed: 'quality', sat: 'long' },
     strengthDays: { tue: 'A', thu: 'B' },
     conventions: { lungeBaselinePerLeg: true, bridgeBaselinePerLeg: true },
-    base: { pressUps: 20, squats: 20, lunges: 10, plankSec: 60, bridge: 5, tenKMin: 65, tenKSec: 0 },
+    base: { pressUps: 20, squats: 20, lunges: 10, plankSec: 60, bridge: 5 },
     profile: { age: null, heightCm: null, weightKg: null },
   }, START);
   for (let w = 0; w < 4; w++) {
     const mon = addDays(START, 7 * w);
-    s.runLogs.push({ id: id('run'), date: mon, distanceKm: 5, durationSec: Math.round(5 * (405 - 3 * w)), runType: 'easy', rpe: 4, sorenessAffected: false, notes: '' });
     lift(s, 'A', addDays(mon, 1), w, { top: ['press-up', 'dead-bug'] });
     s.checkins.push({ id: id('chk'), date: addDays(mon, 2), energy: 4, sleep: w === 1 ? 3 : 4, legSoreness: 2, pain: '' });
-    s.runLogs.push({ id: id('run'), date: addDays(mon, 2), distanceKm: 6.5, durationSec: Math.round(6.5 * (362 - 4 * w)), runType: w % 2 ? 'intervals' : 'tempo', rpe: 7, sorenessAffected: false, notes: '' });
     if (w < 3) {
       lift(s, 'B', addDays(mon, 3), w, { top: ['side-plank'] });
       s.checkins.push({ id: id('chk'), date: addDays(mon, 4), energy: 4, sleep: 4, legSoreness: w === 0 ? 3 : 2, pain: '' });
-      s.runLogs.push({ id: id('run'), date: addDays(mon, 5), distanceKm: 10 + w, durationSec: Math.round((10 + w) * (400 - 2 * w)), runType: 'long', rpe: 6, sorenessAffected: false, notes: '' });
     }
   }
   s.settings.lastBackupAt = '2026-11-08';
   s.settings.installHintDismissed = true;
   if (kind === 'logging') {
-    const d = createDraft(s, 'B', '2026-11-26', { runProtect: true, nowIso: new Date(DEMO_NOW.getTime() - 14 * 60000).toISOString() });
+    const d = createDraft(s, 'B', '2026-11-26', { nowIso: new Date(DEMO_NOW.getTime() - 14 * 60000).toISOString() });
     d.energyBefore = 4;
     d.exercises[0].rows.forEach((r) => { r.done = true; r.rir = 2; });
     d.exercises[1].rows[0].done = true;

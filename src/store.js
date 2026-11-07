@@ -23,23 +23,21 @@ export function emptyState(now = new Date()) {
         'Functional strength',
         'Core strength and stability',
         'Mobility and flexibility',
-        'Support 10K running performance',
       ],
       equipment: ['bodyweight', 'exercise mat'],
       disliked: ['burpees', 'mountain climbers'],
       sessionMinutes: [35, 40],
     },
     conventions: { lungeBaselinePerLeg: null, bridgeBaselinePerLeg: null },
-    schedule: { runDays: { mon: null, wed: null, sat: null }, strengthDays: {} },
+    schedule: { strengthDays: {} },
     block: { number: 1, startDate: null },
     plans: [],
     strengthLogs: [],
-    runLogs: [],
     checkins: [],
     benchmarks: [],
     decisions: [],
     draft: null,
-    settings: { lastBackupAt: null, installHintDismissed: false, flow: 'circuit', restShort: 45, restLong: 75, sound: true },
+    settings: { lastBackupAt: null, installHintDismissed: false, restShort: 45, restLong: 75, sound: true },
   };
 }
 
@@ -50,7 +48,7 @@ export function migrate(raw) {
   for (const k of ['profile', 'conventions', 'schedule', 'block', 'settings']) {
     out[k] = { ...base[k], ...(raw[k] || {}) };
   }
-  for (const k of ['plans', 'strengthLogs', 'runLogs', 'checkins', 'benchmarks', 'decisions']) {
+  for (const k of ['plans', 'strengthLogs', 'checkins', 'benchmarks', 'decisions']) {
     out[k] = Array.isArray(raw[k]) ? raw[k] : [];
   }
   if (out.draft === undefined) out.draft = null;
@@ -141,14 +139,14 @@ export function readBackup(text) {
   let parsed;
   try { parsed = JSON.parse(text); } catch (e) { return { ok: false, error: 'The file could not be read as a backup.' }; }
   if (!parsed || parsed.app !== APP_ID || typeof parsed.state !== 'object' || parsed.state === null) {
-    return { ok: false, error: 'This file is not a Strength & Running Coach backup.' };
+    return { ok: false, error: 'This file is not a Circuit Coach backup.' };
   }
   if (parsed.schemaVersion > SCHEMA_VERSION) {
     return { ok: false, error: 'This backup was made by a newer version of the app. Update the app first.' };
   }
   const state = migrate({ ...parsed.state, schemaVersion: parsed.state.schemaVersion || 1 });
   if (!usable(state)) return { ok: false, error: 'This backup is incomplete (it has no training plan) and cannot be restored.' };
-  const dates = [...state.strengthLogs, ...state.runLogs, ...state.checkins, ...state.benchmarks]
+  const dates = [...state.strengthLogs, ...state.checkins, ...state.benchmarks]
     .map((x) => x.date).filter(Boolean).sort();
   return {
     ok: true,
@@ -156,7 +154,6 @@ export function readBackup(text) {
     summary: {
       exportedAt: parsed.exportedAt || null,
       strengthCount: state.strengthLogs.length,
-      runCount: state.runLogs.length,
       checkinCount: state.checkins.length,
       firstDate: dates[0] || null,
       lastDate: dates[dates.length - 1] || null,

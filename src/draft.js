@@ -1,6 +1,6 @@
 // The strength session being logged. It lives in state.draft and is saved on every tap, so closing the app
 // mid-workout loses nothing. finishDraft turns it into a strength log.
-import { currentPlan, sessionForToday } from './plan.js';
+import { currentPlan } from './plan.js';
 
 export function targetOf(p) {
   return { variation: p.variation, sets: p.sets, min: p.min, max: p.max, unit: p.unit, sides: p.sides, tempoDown: p.tempoDown, pause: p.pause, legHeavy: p.legHeavy };
@@ -43,16 +43,15 @@ function buildRows(p, last, keep = []) {
   return rows;
 }
 
-export function createDraft(state, sessionId, today, { runProtect = false, nowIso = new Date().toISOString() } = {}) {
+export function createDraft(state, sessionId, today, { nowIso = new Date().toISOString() } = {}) {
   const plan = currentPlan(state);
-  const session = sessionForToday(plan.sessions[sessionId], { runProtect });
+  const session = plan.sessions[sessionId];
   const checkin = state.checkins.find((c) => c.date === today);
   return {
     sessionId,
     date: today,
     startedAt: nowIso,
     planVersion: plan.version,
-    runProtect,
     energyBefore: checkin && typeof checkin.energy === 'number' ? checkin.energy : null,
     rpe: null,
     pain: '',
@@ -77,7 +76,6 @@ export function draftFromLog(log) {
     date: log.date,
     startedAt: log.createdAt,
     planVersion: log.planVersion,
-    runProtect: Boolean(log.runProtect),
     energyBefore: log.energyBefore ?? null,
     rpe: log.rpe ?? null,
     pain: log.pain || '',
@@ -105,21 +103,6 @@ export function draftFromLog(log) {
   };
 }
 
-export function setRunProtect(draft, state, on) {
-  const plan = state.plans.find((p) => p.version === draft.planVersion) || currentPlan(state);
-  const session = sessionForToday(plan.sessions[draft.sessionId], { runProtect: on });
-  return {
-    ...draft,
-    runProtect: on,
-    exercises: draft.exercises.map((e) => {
-      const p = session.exercises.find((x) => x.exerciseId === e.exerciseId);
-      if (!p || p.sets === e.target.sets) return e;
-      const keep = e.rows.filter((r) => r.set <= p.sets);
-      return { ...e, target: { ...e.target, sets: p.sets }, rows: buildRows({ ...p, variation: e.variation }, new Map(), keep) };
-    }),
-  };
-}
-
 export function elapsedMinutes(draft, nowMs) {
   const start = Date.parse(draft.startedAt);
   if (!Number.isFinite(start)) return 0;
@@ -135,7 +118,6 @@ export function finishDraft(draft, { nowMs = Date.now(), id }) {
     planVersion: draft.planVersion,
     createdAt: draft.editingCreatedAt || new Date(nowMs).toISOString(),
     durationMin,
-    runProtect: draft.runProtect,
     rpe: draft.rpe,
     energyBefore: draft.energyBefore,
     pain: draft.pain.trim(),

@@ -12,7 +12,9 @@ describe('store', () => {
     expect(s.schemaVersion).toBe(SCHEMA_VERSION);
     expect(s.setupDone).toBe(false);
     expect(s.createdAt).toBe('2026-11-09');
-    for (const k of ['plans', 'strengthLogs', 'runLogs', 'checkins', 'benchmarks', 'decisions']) expect(s[k]).toEqual([]);
+    for (const k of ['plans', 'strengthLogs', 'checkins', 'benchmarks', 'decisions']) expect(s[k]).toEqual([]);
+    expect('runLogs' in s).toBe(false);
+    expect(s.profile.goals.join(' ').includes('10K')).toBe(false);
     expect(s.draft).toBe(null);
     expect(s.profile.weightKg).toBe(null);
     expect(s.profile.disliked).toEqual(['burpees', 'mountain climbers']);
@@ -27,11 +29,11 @@ describe('store', () => {
   it('save then load round-trips', () => {
     const st = memoryStorage();
     const s = emptyState(NOW);
-    s.runLogs.push({ id: 'r1', date: '2026-11-09', distanceKm: 5, durationSec: 1800 });
+    s.checkins.push({ id: 'c1', date: '2026-11-09', energy: 4 });
     expect(saveState(st, s)).toBe(true);
     const r = loadState(st, NOW);
     expect(r.source).toBe('main');
-    expect(r.state.runLogs[0].distanceKm).toBe(5);
+    expect(r.state.checkins[0].energy).toBe(4);
   });
 
   it('save keeps the previous good copy', () => {
@@ -84,9 +86,9 @@ describe('store', () => {
   });
 
   it('migrate fills missing parts', () => {
-    const m = migrate({ schemaVersion: 1, setupDone: true, runLogs: [{ id: 'x' }] });
+    const m = migrate({ schemaVersion: 1, setupDone: false, checkins: [{ id: 'x' }] });
     expect(m.strengthLogs).toEqual([]);
-    expect(m.runLogs.length).toBe(1);
+    expect(m.checkins.length).toBe(1);
     expect(m.settings.lastBackupAt).toBe(null);
     expect(m.profile.level).toBe('intermediate');
     expect(m.block.number).toBe(1);
@@ -105,11 +107,11 @@ describe('store', () => {
   it('reads a backup and summarises it', () => {
     const s = emptyState(NOW);
     s.strengthLogs.push({ id: 's1', date: '2026-11-03' }, { id: 's2', date: '2026-11-06' });
-    s.runLogs.push({ id: 'r1', date: '2026-11-02' });
+    s.checkins.push({ id: 'c1', date: '2026-11-02' });
     const r = readBackup(makeBackup(s, NOW).json);
     expect(r.ok).toBe(true);
     expect(r.summary.strengthCount).toBe(2);
-    expect(r.summary.runCount).toBe(1);
+    expect(r.summary.checkinCount).toBe(1);
     expect(r.summary.firstDate).toBe('2026-11-02');
     expect(r.summary.lastDate).toBe('2026-11-06');
   });

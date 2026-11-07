@@ -2,7 +2,7 @@ import { describe, it, expect } from './harness.js';
 import { EXERCISES, isBannedName, WARMUPS, COOLDOWN } from '../src/library.js';
 import {
   defaultSessions, createInitialPlan, currentPlan, prescriptionLabel, tempoLabel, sideCount, estimateMinutes,
-  withPrescription, revertPlan, sessionForToday, ladderIndex, samePrescription,
+  withPrescription, revertPlan, ladderIndex, samePrescription,
 } from '../src/plan.js';
 
 const T = '2026-11-09';
@@ -48,12 +48,6 @@ describe('plan', () => {
     const labels = s.A.exercises.map(prescriptionLabel);
     expect(labels).toEqual(['3 × 8–10 per leg', '3 × 8–12', '2 × 5–6 per leg', '2 × 6–8 each position', '3 × 8–10 per side']);
     expect(s.B.exercises.map(prescriptionLabel)).toEqual(['3 × 8 per leg', '3 × 10–12', '2 × 6–8', '3 × 10–12 per leg', '2 × 25–40 s per side']);
-  });
-
-  it('run-protect sets exist only on single-leg RDL and calf raises', () => {
-    const s = defaultSessions(T);
-    const withProtect = [...s.A.exercises, ...s.B.exercises].filter((p) => p.runProtectSets).map((p) => p.exerciseId);
-    expect(withProtect).toEqual(['sl-rdl', 'sl-calf-raise']);
   });
 
   it('tempo labels', () => {
@@ -110,16 +104,6 @@ describe('plan', () => {
     expect(v3.sessions.A.exercises[1].max).toBe(12);
     expect(v3.sessions.A.exercises[1].since).toBe(T);
     expect(v3.sessions.A.exercises[0].since).toBe('2026-11-02');
-  });
-
-  it('sessionForToday applies run-protect sets', () => {
-    const s = defaultSessions(T);
-    const normal = sessionForToday(s.B, { runProtect: false });
-    const light = sessionForToday(s.B, { runProtect: true });
-    expect(normal.exercises[0].sets).toBe(3);
-    expect(light.exercises[0].sets).toBe(2);
-    expect(light.exercises[3].sets).toBe(2);
-    expect(light.exercises[1].sets).toBe(3);
   });
 
   it('ladderIndex finds the variation, -1 for a swap', () => {

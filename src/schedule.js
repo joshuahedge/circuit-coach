@@ -1,35 +1,8 @@
-// Weekly scheduling: where strength sessions go around the runs, the block week, and the week view model.
+// Weekly schedule: two strength sessions on days you choose, the block week, and the week view model.
 import { DAY_KEYS, DAY_NAMES, addDays, dayKey, daysBetween, weekDays, weekStart } from './dates.js';
 
-export const RUN_TYPES = ['easy', 'intervals', 'tempo', 'long', 'other'];
-export const RUN_TYPE_LABEL = {
-  easy: 'Easy', intervals: 'Intervals', tempo: 'Tempo', long: 'Long', other: 'Other', quality: 'Quality',
-};
-export const SCHEDULE_RUN_LABEL = { easy: 'Easy run', quality: 'Quality run', long: 'Long run', other: 'Run' };
-
-// Logged run types map onto the schedule's easy / quality / long.
-export function runCategory(runType) {
-  if (runType === 'tempo' || runType === 'intervals' || runType === 'quality') return 'quality';
-  if (runType === 'long' || runType === 'easy') return runType;
-  return 'other';
-}
-
-const next = (key, n = 1) => DAY_KEYS[(DAY_KEYS.indexOf(key) + n) % 7];
-
-function dayScore(key, runDays) {
-  let score = 0;
-  const notes = [];
-  const n1 = runDays[next(key)];
-  const n2 = runDays[next(key, 2)];
-  if (n1 === 'long') { score -= 10; notes.push(`the day before ${DAY_NAMES[next(key)]}'s long run`); }
-  if (n1 === 'quality') { score -= 3; notes.push(`the day before ${DAY_NAMES[next(key)]}'s quality run, so legs stay moderate`); }
-  if (n2 === 'long') { score -= 2; notes.push(`two days before ${DAY_NAMES[next(key, 2)]}'s long run, so the lighter leg version applies`); }
-  const prev = runDays[next(key, 6)];
-  if (prev === 'long') { score -= 2; notes.push(`the day after ${DAY_NAMES[next(key, 6)]}'s long run`); }
-  if (key === 'fri') { score -= 4; notes.push('Friday is better kept for recovery'); }
-  if (key === 'sun') { score -= 4; notes.push('Sunday is kept for rest, walking or mobility'); }
-  return { score, notes };
-}
+// Two or three rest days between the sessions by default.
+export const DEFAULT_DAYS = { tue: 'A', fri: 'B' };
 
 function consecutive(a, b) {
   const i = DAY_KEYS.indexOf(a);
@@ -37,40 +10,12 @@ function consecutive(a, b) {
   return Math.abs(i - j) === 1 || (Math.min(i, j) === 0 && Math.max(i, j) === 6);
 }
 
-export function recommendStrengthDays(runDays) {
-  const runKeys = Object.keys(runDays);
-  let candidates = DAY_KEYS.filter((d) => !runKeys.includes(d));
-  // Six or seven run days leave no free pair: strength then shares a day with a run.
-  if (candidates.length < 2) candidates = [...DAY_KEYS];
-  const scored = Object.fromEntries(candidates.map((d) => [d, dayScore(d, runDays)]));
-  let best = null;
-  for (let i = 0; i < candidates.length; i++) {
-    for (let j = i + 1; j < candidates.length; j++) {
-      const a = candidates[i];
-      const b = candidates[j];
-      let total = scored[a].score + scored[b].score;
-      if (consecutive(a, b)) total -= 6;
-      const preferred = a === 'tue' && b === 'thu';
-      if (!best || total > best.total || (total === best.total && preferred)) best = { a, b, total };
-    }
-  }
-  const reasonFor = (d, id) => {
-    const { notes } = scored[d];
-    const why = notes.length ? notes.join('; ') : 'no hard run the next day';
-    return `${DAY_NAMES[d]}: Session ${id}. ${why.charAt(0).toUpperCase()}${why.slice(1)}.`;
-  };
-  return {
-    strengthDays: { [best.a]: 'A', [best.b]: 'B' },
-    reasons: [reasonFor(best.a, 'A'), reasonFor(best.b, 'B')],
-  };
-}
-
 export const PHASES = {
   establish: { label: 'Establish', text: 'Learn the movements and settle your starting reps. Keep 2–3 reps in reserve. No increases yet.' },
   build: { label: 'Build', text: 'Add 1–2 reps where every set was clean and manageable. Not every exercise at once.' },
   intensify: { label: 'Intensify selectively', text: 'When the top of a range is comfortable, change one thing: slower tempo, longer pause, a harder version or an extra set.' },
   consolidate: { label: 'Consolidate', text: 'Hold steady or progress a little. Plan your benchmark tests for the end of the block.' },
-  review: { label: 'Block review', text: 'Block finished. Do your benchmark tests, review how running and strength went, then start the next block.' },
+  review: { label: 'Block review', text: 'Block finished. Do your benchmark tests, look back at how the block went, then start the next block.' },
 };
 
 export function blockInfo(state, today) {
@@ -85,71 +30,30 @@ export function blockInfo(state, today) {
   return { number: state.block.number || 1, week: Math.max(1, week), phase, ...PHASES[phase] };
 }
 
-export function runProtection(state, iso) {
-  const runDays = state.schedule.runDays || {};
-  const d1 = dayKey(addDays(iso, 1));
-  const d2 = dayKey(addDays(iso, 2));
-  let daysToLong = null;
-  if (runDays[d1] === 'long') daysToLong = 1;
-  else if (runDays[d2] === 'long') daysToLong = 2;
-  return {
-    longRunSoon: daysToLong !== null,
-    daysToLong,
-    longDayName: daysToLong ? DAY_NAMES[daysToLong === 1 ? d1 : d2] : null,
-    qualityTomorrow: runDays[d1] === 'quality',
-    qualityDayName: runDays[d1] === 'quality' ? DAY_NAMES[d1] : null,
-  };
-}
-
 function plannedFor(schedule, key) {
-  const items = [];
-  if (Object.prototype.hasOwnProperty.call(schedule.runDays, key)) items.push({ kind: 'run', runType: schedule.runDays[key] || 'other' });
-  if (schedule.strengthDays[key]) items.push({ kind: 'strength', sessionId: schedule.strengthDays[key] });
-  return items;
+  const id = schedule.strengthDays && schedule.strengthDays[key];
+  return id ? [{ kind: 'strength', sessionId: id }] : [];
 }
 
 export function weekModel(state, today) {
   const isos = weekDays(today);
   const inWeek = (x) => x.date >= isos[0] && x.date <= isos[6];
-  const runs = state.runLogs.filter(inWeek);
   const lifts = state.strengthLogs.filter(inWeek);
   const days = isos.map((iso) => ({
     iso,
     key: dayKey(iso),
     isToday: iso === today,
     planned: plannedFor(state.schedule, dayKey(iso)).map((p) => ({ ...p })),
-    runs: runs.filter((r) => r.date === iso),
     lifts: lifts.filter((l) => l.date === iso),
     checkin: state.checkins.find((c) => c.date === iso) || null,
   }));
 
-  // Planned runs, in three passes: (1) a run on the same day, unless it was logged for another day;
-  // (2) a run logged as this planned run, done early or late; (3) a missed slot (already past) takes a spare
-  // run of a fitting type. A slot still ahead is never ticked by a run on another day: that is an extra run.
-  const usedRuns = new Set();
-  const sorted = [...runs].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
-  const runSlots = days.flatMap((d) => d.planned.filter((p) => p.kind === 'run').map((p) => ({ d, p })));
-  const take = (p, r, status) => { usedRuns.add(r.id); p.status = status; p.logId = r.id; };
-  for (const { d, p } of runSlots) {
-    const same = d.runs.find((r) => !usedRuns.has(r.id) && (!r.forDay || r.forDay === d.iso));
-    if (same) take(p, same, 'done');
-  }
-  for (const { d, p } of runSlots) {
-    if (p.status) continue;
-    const linked = sorted.find((r) => !usedRuns.has(r.id) && r.forDay === d.iso);
-    if (linked) take(p, linked, 'moved');
-  }
-  const fits = (r, p) => !p.runType || p.runType === 'other' || r.runType === 'other' || runCategory(r.runType) === p.runType;
-  for (const { d, p } of runSlots) {
-    if (p.status || d.iso >= today) continue;
-    const spare = sorted.find((r) => !usedRuns.has(r.id) && !r.forDay && fits(r, p));
-    if (spare) take(p, spare, 'moved');
-  }
-  // Planned strength: any log of that session this week.
+  // A planned session is done by any log of that session this week (on its day, or moved to another).
+  const used = new Set();
   for (const d of days) {
-    for (const p of d.planned.filter((x) => x.kind === 'strength')) {
-      const log = lifts.find((l) => l.sessionId === p.sessionId);
-      if (log) { p.status = log.date === d.iso ? 'done' : 'moved'; p.logId = log.id; }
+    for (const p of d.planned) {
+      const log = lifts.find((l) => l.sessionId === p.sessionId && !used.has(l.id));
+      if (log) { used.add(log.id); p.status = log.date === d.iso ? 'done' : 'moved'; p.logId = log.id; }
     }
   }
   for (const d of days) {
@@ -175,32 +79,18 @@ export function weekModel(state, today) {
   return {
     weekStart: isos[0],
     days,
-    runKm: Math.round(runs.reduce((s, r) => s + (Number(r.distanceKm) || 0), 0) * 10) / 10,
-    runsDone: runSlots.filter(({ p }) => p.status === 'done' || p.status === 'moved').length,
-    runsExtra: runs.filter((r) => !usedRuns.has(r.id)).length,
-    runsPlanned: Object.keys(state.schedule.runDays).length,
     strengthDone: lifts.length,
-    strengthPlanned: Object.keys(state.schedule.strengthDays).length,
+    strengthPlanned: Object.keys(state.schedule.strengthDays || {}).length,
+    extraIds: lifts.filter((l) => !used.has(l.id)).map((l) => l.id),
     nextUp,
   };
 }
 
 export function scheduleWarnings(schedule) {
   const out = [];
-  const strength = Object.entries(schedule.strengthDays);
-  for (const [key, id] of strength) {
-    const n1 = schedule.runDays[next(key)];
-    if (n1 === 'long') {
-      out.push({ level: 'warn', text: `Session ${id} on ${DAY_NAMES[key]} is the day before your long run. Move it if you can, or keep the legs very light.` });
-    } else if (n1 === 'quality') {
-      out.push({ level: 'info', text: `Session ${id} on ${DAY_NAMES[key]} is the day before your quality run: keep lower-body sets 2–3 reps short of failure.` });
-    }
-    if (Object.prototype.hasOwnProperty.call(schedule.runDays, key)) {
-      out.push({ level: 'info', text: `Session ${id} shares ${DAY_NAMES[key]} with a run. Run first, or keep the strength work light.` });
-    }
-  }
-  if (strength.length === 2 && consecutive(strength[0][0], strength[1][0])) {
-    out.push({ level: 'warn', text: 'Your two strength sessions are back-to-back. A day between them helps recovery.' });
+  const days = Object.keys(schedule.strengthDays || {});
+  if (days.length === 2 && consecutive(days[0], days[1])) {
+    out.push({ level: 'warn', text: `Session ${schedule.strengthDays[days[0]]} and Session ${schedule.strengthDays[days[1]]} are on back-to-back days (${DAY_NAMES[days[0]]} and ${DAY_NAMES[days[1]]}). A day or two between them helps recovery.` });
   }
   return out;
 }

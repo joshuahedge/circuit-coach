@@ -1,6 +1,5 @@
 // Series for the Progress charts. Every function returns plain arrays sorted oldest first.
 import { addDays, weekStart } from './dates.js';
-import { paceSecPerKm } from './pace.js';
 
 const byDate = (a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
 const round1 = (x) => Math.round(x * 10) / 10;
@@ -30,12 +29,6 @@ export function loggedExerciseIds(state) {
   return [...ids];
 }
 
-export function runPaceSeries(state) {
-  return [...state.runLogs].sort(byDate)
-    .map((r) => ({ date: r.date, pace: paceSecPerKm(r.distanceKm, r.durationSec), runType: r.runType, km: r.distanceKm, id: r.id }))
-    .filter((r) => r.pace);
-}
-
 export function weeklyTotals(state, today, weeks = 8) {
   const thisWeek = weekStart(today);
   const out = [];
@@ -43,13 +36,7 @@ export function weeklyTotals(state, today, weeks = 8) {
     const start = addDays(thisWeek, -7 * i);
     const end = addDays(start, 6);
     const inWeek = (x) => x.date >= start && x.date <= end;
-    const runs = state.runLogs.filter(inWeek);
-    out.push({
-      weekStart: start,
-      km: round1(runs.reduce((s, r) => s + (Number(r.distanceKm) || 0), 0)),
-      runs: runs.length,
-      strength: state.strengthLogs.filter(inWeek).length,
-    });
+    out.push({ weekStart: start, strength: state.strengthLogs.filter(inWeek).length });
   }
   return out;
 }

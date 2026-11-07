@@ -1,5 +1,5 @@
 import { describe, it, expect } from './harness.js';
-import { createDraft, setRunProtect, finishDraft, draftProgress, elapsedMinutes } from '../src/draft.js';
+import { createDraft, finishDraft, draftProgress, elapsedMinutes } from '../src/draft.js';
 import { setupState, addLog } from './fixtures.js';
 
 describe('draft', () => {
@@ -20,21 +20,6 @@ describe('draft', () => {
     addLog(s, 'A', '2026-11-03', { ex: { 'press-up': { value: 11 } } });
     const d = createDraft(s, 'A', '2026-11-05');
     expect(d.exercises[1].rows.map((r) => r.value)).toEqual([11, 11, 11]);
-  });
-
-  it('run protection trims and restores sets, keeping values', () => {
-    const s = setupState();
-    let d = createDraft(s, 'B', '2026-11-05', { runProtect: true });
-    expect(d.exercises[0].rows.length).toBe(4);
-    expect(d.exercises[0].target.sets).toBe(2);
-    d.exercises[0].rows[0].value = 7;
-    d = setRunProtect(d, s, false);
-    expect(d.exercises[0].rows.length).toBe(6);
-    expect(d.exercises[0].target.sets).toBe(3);
-    expect(d.exercises[0].rows[0].value).toBe(7);
-    expect(d.exercises[1].rows.length).toBe(3);
-    d = setRunProtect(d, s, true);
-    expect(d.exercises[0].rows.length).toBe(4);
   });
 
   it('finishing keeps only ticked sets and marks untouched exercises skipped', () => {

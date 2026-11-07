@@ -1,7 +1,7 @@
 import { describe, it, expect } from './harness.js';
 import { coachReview, acceptSuggestion, rejectSuggestion, dismissNote, startNextBlock, canUndoDecision, undoDecision } from '../src/coach.js';
 import { currentPlan, withPrescription } from '../src/plan.js';
-import { setupState, addLog, addRun, addCheckin } from './fixtures.js';
+import { setupState, addLog, addCheckin } from './fixtures.js';
 
 const find = (r, exerciseId, rule) => r.suggestions.find((s) => s.exerciseId === exerciseId && (!rule || s.rule === rule));
 const top = (rir = 2) => ({ value: 'top', rir });
@@ -146,13 +146,6 @@ describe('coach: readiness', () => {
     expect(find(coachReview(s, '2026-11-20'), 'press-up')).toBe(undefined);
   });
 
-  it('run-protected sessions do not count towards progress for the trimmed exercises', () => {
-    const s = setupState();
-    addLog(s, 'B', '2026-11-17', { ex: { 'sl-rdl': top() } });
-    addLog(s, 'B', '2026-11-19', { ex: { 'sl-rdl': top() }, runProtect: true });
-    expect(find(coachReview(s, '2026-11-20'), 'sl-rdl')).toBe(undefined);
-  });
-
   it('only logs of the current prescription count', () => {
     const s = setupState();
     addLog(s, 'A', '2026-11-17', { ex: { 'press-up': top() } });
@@ -237,18 +230,6 @@ describe('coach: holding back', () => {
     const sug = coachReview(s, '2026-11-06').suggestions.find((x) => x.rule === 'effort');
     expect(sug.exerciseId).toBe('reverse-lunge');
     expect(sug.to.sets).toBe(2);
-  });
-
-  it('a run hurt by sore legs pauses leg progress and lightens the session before it', () => {
-    const s = setupState();
-    addLog(s, 'A', '2026-11-17', { ex: { 'press-up': top(), 'reverse-lunge': top() } });
-    addRun(s, '2026-11-18', { type: 'tempo', affected: true });
-    addLog(s, 'A', '2026-11-19', { ex: { 'press-up': top(), 'reverse-lunge': top() } });
-    const r = coachReview(s, '2026-11-20');
-    expect(find(r, 'reverse-lunge', 'progress')).toBe(undefined);
-    expect(find(r, 'reverse-lunge', 'run-affected').to.sets).toBe(2);
-    expect(Boolean(find(r, 'press-up', 'progress'))).toBe(true);
-    expect(r.notes.some((n) => n.title === 'Leg increases paused')).toBe(true);
   });
 
   it('high leg soreness in a check-in pauses leg progress', () => {
@@ -384,23 +365,6 @@ describe('coach: notes', () => {
     expect(coachReview(s, '2026-11-06').notes.some((n) => n.title === 'Hold Press-up')).toBe(true);
   });
 
-  it('runs that feel harder at the same pace', () => {
-    const s = setupState();
-    for (const d of ['2026-11-02', '2026-11-04', '2026-11-07']) addRun(s, d, { rpe: 4 });
-    for (const d of ['2026-11-09', '2026-11-11']) addRun(s, d, { rpe: 6 });
-    const n = coachReview(s, '2026-11-12').notes.find((x) => x.kind === 'running');
-    expect(n.text).toContain('sleep, stress, illness');
-  });
-
-  it('a big jump in weekly km', () => {
-    const s = setupState();
-    for (const w of ['2026-11-02', '2026-11-09', '2026-11-16']) addRun(s, w, { km: 15, sec: 5850 });
-    addRun(s, '2026-11-23', { km: 12 });
-    addRun(s, '2026-11-25', { km: 10 });
-    const r = coachReview(s, '2026-11-26');
-    expect(r.notes.some((x) => x.title === 'Big jump in running')).toBe(true);
-  });
-
   it('benchmark due after 4 weeks, overdue after 8', () => {
     const s = setupState();
     expect(coachReview(s, '2026-11-29').notes.some((n) => n.kind === 'benchmark')).toBe(false);
@@ -409,11 +373,11 @@ describe('coach: notes', () => {
   });
 
   it('schedule warnings and dismissing a note', () => {
-    const s = setupState({ strengthDays: { tue: 'A', fri: 'B' } });
+    const s = setupState({ strengthDays: { tue: 'A', wed: 'B' } });
     const r = coachReview(s, '2026-11-04');
-    const n = r.notes.find((x) => x.kind === 'schedule' && x.level === 'warn');
-    expect(n.text).toContain('day before your long run');
-    expect(r.notes.some((x) => x.kind === 'schedule' && x.level === 'info' && x.text.includes('quality run'))).toBe(true);
+    const n = r.notes.find((x) => x.kind === 'schedule');
+    expect(n.text).toContain('back-to-back');
+    expect(coachReview(setupState(), '2026-11-04').notes.some((x) => x.kind === 'schedule')).toBe(false);
     const after = dismissNote(s, n, '2026-11-04');
     expect(coachReview(after, '2026-11-04').notes.some((x) => x.key === n.key)).toBe(false);
   });

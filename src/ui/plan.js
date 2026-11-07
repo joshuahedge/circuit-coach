@@ -1,11 +1,12 @@
 // Plan: sessions and exercises, schedule, profile, and data (backup, restore, reset).
-import { h, fill, ICONS, topbar, chips, group, field, numberInput } from './dom.js';
+import { h, fill, ICONS, topbar, field, numberInput } from './dom.js';
+import { dayOf, sessionDayPickers, withSessionDay } from './days.js';
 import { openSheet, confirmSheet } from './sheet.js';
 import { openRxEditor, copySummary } from './coach.js';
 import { EXERCISES, WARMUPS, COOLDOWN, REST_NOTE, LIMITATION_NOTE, SAFETY_NOTE } from '../library.js';
 import { currentPlan, estimateMinutes, prescriptionLabel, tempoLabel, withPrescription } from '../plan.js';
-import { recommendStrengthDays, scheduleWarnings, SCHEDULE_RUN_LABEL } from '../schedule.js';
-import { DAY_KEYS, DAY_NAMES, DAY_SHORT, formatShort } from '../dates.js';
+import { scheduleWarnings } from '../schedule.js';
+import { DAY_KEYS, DAY_SHORT, formatShort } from '../dates.js';
 import { emptyState, makeBackup, readBackup } from '../store.js';
 import { APP_VERSION } from '../version.js';
 
@@ -52,45 +53,24 @@ function sessionCard(app, plan, id) {
     h('div', { class: 'card accent-strength tight' }, h('b', null, s.focus), h('p', { class: 'small muted' }, `Warm-up: ${WARMUPS[id]}`)),
     h('div', { class: 'list' }, s.exercises.map((p) => h('button', { class: 'list-item', type: 'button', onclick: () => exerciseSheet(app, id, p) },
       h('span', { class: 'grow' }, h('b', null, p.variation),
-        h('div', { class: 'small muted' }, [prescriptionLabel(p), tempoLabel(p), p.runProtectSets ? `${p.runProtectSets} sets before a long run` : ''].filter(Boolean).join(' · '))),
+        h('div', { class: 'small muted' }, [prescriptionLabel(p), tempoLabel(p)].filter(Boolean).join(' · '))),
       h('span', { class: 'chev', html: ICONS.chev })))));
 }
 
 function scheduleSheet(app) {
-  const st = app.state.schedule;
-  const w = { runDays: { ...st.runDays }, strengthDays: { ...st.strengthDays } };
-  openSheet(app, 'Your week', (close) => {
+  let days = { ...app.state.schedule.strengthDays };
+  openSheet(app, 'Your training days', (close) => {
     const body = h('div');
     const draw = () => {
-      const days = DAY_KEYS.filter((d) => d in w.runDays);
-      const dayOf = (id) => Object.keys(w.strengthDays).find((d) => w.strengthDays[d] === id);
-      const setDay = (id, d) => {
-        const other = id === 'A' ? 'B' : 'A';
-        const od = dayOf(other);
-        w.strengthDays = { [d]: id, ...(od && od !== d ? { [od]: other } : {}) };
-        draw();
-      };
-      const valid = days.length > 0 && days.every((d) => w.runDays[d]) && dayOf('A') && dayOf('B');
-      const rec = recommendStrengthDays(w.runDays);
+      const valid = Boolean(dayOf(days, 'A') && dayOf(days, 'B'));
       fill(body,
-        group('Run days', h('div', { class: 'day-pick' }, DAY_KEYS.map((d) => h('button', {
-          type: 'button', class: 'chip', 'aria-pressed': String(d in w.runDays), 'aria-label': `Run on ${DAY_NAMES[d]}`,
-          onclick: () => { if (d in w.runDays) delete w.runDays[d]; else w.runDays[d] = null; draw(); },
-        }, DAY_SHORT[d])))),
-        days.map((d) => group(`${DAY_NAMES[d]} run`, chips({
-          options: [{ value: 'easy', label: 'Easy' }, { value: 'quality', label: 'Quality' }, { value: 'long', label: 'Long' }, { value: 'other', label: 'Other' }],
-          value: w.runDays[d], label: `${DAY_NAMES[d]} run type`, onChange: (v) => { w.runDays[d] = v; draw(); },
-        }))),
-        ['A', 'B'].map((id) => group(`Session ${id}`, h('div', { class: 'day-pick' }, DAY_KEYS.map((d) => h('button', {
-          type: 'button', class: 'chip', 'aria-pressed': String(dayOf(id) === d), 'aria-label': `Session ${id} on ${DAY_NAMES[d]}`, onclick: () => setDay(id, d),
-        }, DAY_SHORT[d]))))),
-        h('button', { class: 'link', type: 'button', onclick: () => { w.strengthDays = { ...rec.strengthDays }; draw(); } }, 'Use the recommended strength days'),
-        scheduleWarnings(w).map((x) => h('div', { class: `banner ${x.level === 'warn' ? 'warn' : 'run'}` }, x.text)),
+        sessionDayPickers(days, (id, d) => { days = withSessionDay(days, id, d); draw(); }),
+        scheduleWarnings({ strengthDays: days }).map((x) => h('div', { class: 'banner warn' }, x.text)),
         h('div', { class: 'btn-row' },
           h('button', { class: 'btn', type: 'button', onclick: close }, 'Cancel'),
           h('button', {
             class: 'btn primary', type: 'button', disabled: !valid,
-            onclick: () => { close(); app.update((s) => ({ ...s, schedule: { runDays: { ...w.runDays }, strengthDays: { ...w.strengthDays } } }), 'Schedule saved'); },
+            onclick: () => { close(); app.update((s) => ({ ...s, schedule: { ...s.schedule, strengthDays: { ...days } } }), 'Training days saved'); },
           }, 'Save')));
     };
     draw();
@@ -153,7 +133,7 @@ export function pickBackupFile(app) {
     const span = sm.firstDate ? ` from ${formatShort(sm.firstDate)} to ${formatShort(sm.lastDate)}` : '';
     const ok = await confirmSheet(app, {
       title: 'Restore this backup?',
-      text: `It holds ${sm.strengthCount} strength sessions, ${sm.runCount} runs and ${sm.checkinCount} check-ins${span}. It replaces everything on this phone now.`,
+      text: `It holds ${sm.strengthCount} sessions and ${sm.checkinCount} check-ins${span}. It replaces everything on this phone now.`,
       confirmLabel: 'Restore', danger: true,
     });
     if (!ok) return;
@@ -169,7 +149,7 @@ export function pickBackupFile(app) {
 
 async function resetAll(app) {
   const ok = await confirmSheet(app, {
-    title: 'Erase everything?', text: 'All workouts, runs, check-ins and plan versions on this phone will be deleted. Back up first if you might want them.',
+    title: 'Erase everything?', text: 'All sessions, check-ins and plan versions on this phone will be deleted. Back up first if you might want them.',
     confirmLabel: 'Erase everything', danger: true,
   });
   if (!ok) return;
@@ -197,12 +177,12 @@ export function planView(app) {
         h('p', { class: 'small muted' }, LIMITATION_NOTE),
         h('p', { class: 'small muted' }, SAFETY_NOTE)),
 
-      h('div', { class: 'section-title' }, 'Schedule'),
+      h('div', { class: 'section-title' }, 'Training days'),
       h('div', { class: 'list' },
-        DAY_KEYS.filter((d) => d in sd.runDays || sd.strengthDays[d]).map((d) => h('div', { class: 'list-item' },
+        DAY_KEYS.filter((d) => sd.strengthDays[d]).map((d) => h('div', { class: 'list-item' },
           h('b', { style: { width: '44px' } }, DAY_SHORT[d]),
-          h('span', { class: 'grow' }, [d in sd.runDays ? SCHEDULE_RUN_LABEL[sd.runDays[d]] || 'Run' : '', sd.strengthDays[d] ? `Session ${sd.strengthDays[d]}` : ''].filter(Boolean).join(' + ')))),
-        h('button', { class: 'list-item', type: 'button', onclick: () => scheduleSheet(app) }, h('span', { class: 'grow strong', style: { color: 'var(--run)' } }, 'Change schedule'))),
+          h('span', { class: 'grow' }, `Session ${sd.strengthDays[d]}`))),
+        h('button', { class: 'list-item', type: 'button', onclick: () => scheduleSheet(app) }, h('span', { class: 'grow strong', style: { color: 'var(--run)' } }, 'Change training days'))),
 
       h('div', { class: 'section-title' }, 'Profile'),
       h('div', { class: 'list' },
@@ -222,5 +202,5 @@ export function planView(app) {
       h('button', { class: 'btn block', type: 'button', onclick: () => copySummary(app) }, 'Copy summary for Claude'),
       h('div', { style: { height: '10px' } }),
       h('button', { class: 'btn danger block', type: 'button', onclick: () => resetAll(app) }, 'Erase all data'),
-      h('p', { class: 'tiny muted', style: { textAlign: 'center', marginTop: '18px' } }, `Strength & Running Coach ${APP_VERSION}`)));
+      h('p', { class: 'tiny muted', style: { textAlign: 'center', marginTop: '18px' } }, `Circuit Coach ${APP_VERSION}`)));
 }

@@ -21,7 +21,6 @@ function rx(exerciseId, sets, min, max, extra = {}) {
     pause: extra.pause || 0,
     cue: extra.cue || ex.cues,
     legHeavy: ex.legHeavy,
-    runProtectSets: extra.runProtectSets || null,
     maxSets: extra.maxSets || 3,
     since: extra.since,
   };
@@ -43,10 +42,10 @@ export function defaultSessions(today) {
     B: {
       id: 'B', ...SESSION_INFO.B,
       exercises: [
-        rx('sl-rdl', 3, 8, 8, { ...s, tempoDown: 3, runProtectSets: 2, maxSets: 4 }),
+        rx('sl-rdl', 3, 8, 8, { ...s, tempoDown: 3, maxSets: 4 }),
         rx('tempo-squat', 3, 10, 12, { ...s, tempoDown: 3, pause: 1, maxSets: 4 }),
         rx('pike-push-up', 2, 6, 8, { ...s, tempoDown: 2, maxSets: 3, variation: 'Pike push-up' }),
-        rx('sl-calf-raise', 3, 10, 12, { ...s, tempoDown: 3, pause: 1, runProtectSets: 2, maxSets: 4 }),
+        rx('sl-calf-raise', 3, 10, 12, { ...s, tempoDown: 3, pause: 1, maxSets: 4 }),
         rx('side-plank', 2, 25, 40, { ...s, maxSets: 3 }),
       ],
     },
@@ -119,7 +118,7 @@ function copySessions(sessions) {
 }
 
 export function samePrescription(a, b) {
-  const keys = ['exerciseId', 'variation', 'sets', 'min', 'max', 'unit', 'tempoDown', 'pause', 'runProtectSets', 'maxSets'];
+  const keys = ['exerciseId', 'variation', 'sets', 'min', 'max', 'unit', 'tempoDown', 'pause', 'maxSets'];
   return keys.every((k) => a[k] === b[k]) && JSON.stringify(a.sides) === JSON.stringify(b.sides);
 }
 
@@ -143,14 +142,6 @@ export function revertPlan(state, version, today) {
   return {
     version: current.version + 1, effectiveFrom: today, createdAt: today,
     reason: `Went back to version ${version}`, acceptedByUser: true, sessions,
-  };
-}
-
-export function sessionForToday(session, { runProtect }) {
-  return {
-    ...session,
-    exercises: session.exercises.map((p) => (
-      runProtect && p.runProtectSets ? { ...p, sets: Math.min(p.sets, p.runProtectSets) } : { ...p })),
   };
 }
 

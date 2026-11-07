@@ -1,7 +1,7 @@
 {
-  "name": "Strength & Running Coach",
+  "name": "Circuit Coach",
   "short_name": "Coach",
-  "description": "Track two bodyweight strength sessions and three runs a week, with a coach that explains every change.",
+  "description": "Two bodyweight circuit sessions a week, with timers and a coach that explains every change.",
   "start_url": "./#/week",
   "scope": "./",
   "display": "standalone",

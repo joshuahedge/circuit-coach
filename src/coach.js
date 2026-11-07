@@ -4,12 +4,11 @@ import { EXERCISES, SAFETY_NOTE } from './library.js';
 import {
   currentPlan, estimateMinutes, ladderIndex, prescriptionLabel, sideText, tempoLabel, withPrescription,
 } from './plan.js';
-import { blockInfo, scheduleWarnings, RUN_TYPE_LABEL } from './schedule.js';
-import { addDays, daysBetween, formatShort, weekStart } from './dates.js';
-import { formatPace, paceSecPerKm } from './pace.js';
+import { blockInfo, scheduleWarnings } from './schedule.js';
+import { daysBetween, formatShort, weekStart } from './dates.js';
 
 const MAX_MINUTES = 40;
-const PRIORITY = { pain: 1, 'run-affected': 2, effort: 3, missed: 4, progress: 5 };
+const PRIORITY = { pain: 1, effort: 3, missed: 4, progress: 5 };
 
 const within = (date, today, days) => {
   const d = daysBetween(date, today);
@@ -28,10 +27,9 @@ export function recoveryFlags(state, today) {
   const sleep = avg(recent.map((c) => c.sleep).filter(isNum));
   const lowRecovery = recent.length > 0 && ((energy !== null && energy <= 2) || (sleep !== null && sleep <= 2));
   const soreChecks = state.checkins.filter((c) => within(c.date, today, 7) && isNum(c.legSoreness) && c.legSoreness >= 4);
-  const affectedRuns = state.runLogs.filter((r) => r.sorenessAffected === true && within(r.date, today, 14));
   return {
-    recent, energy, sleep, lowRecovery, soreChecks, affectedRuns,
-    legBlock: soreChecks.length > 0 || affectedRuns.length > 0,
+    recent, energy, sleep, lowRecovery, soreChecks,
+    legBlock: soreChecks.length > 0,
   };
 }
 
@@ -41,7 +39,7 @@ function targetMatches(t, p) {
     && JSON.stringify(t.sides || null) === JSON.stringify(p.sides || null);
 }
 
-// Logs of this session that trained this exact prescription (sets may differ: run-protected days).
+// Logs of this session that trained this exact prescription (only logs with all its sets count as full).
 function matchingEntries(state, sessionId, p) {
   const out = [];
   for (const log of state.strengthLogs) {
@@ -198,7 +196,7 @@ function entryLines(items) {
 
 function suggestion(rule, kind, sessionId, p, to, title, reason, evidence, details = []) {
   return {
-    key: `${rule}:${sessionId}:${rule === 'run-affected' || rule === 'effort' ? '' : p.exerciseId}:${evidence.join(',')}`,
+    key: `${rule}:${sessionId}:${rule === 'effort' ? '' : p.exerciseId}:${evidence.join(',')}`,
     rule, kind, priority: PRIORITY[rule], sessionId, exerciseId: p.exerciseId, exerciseName: exName(p),
     from: p, to, title, reason, evidence, details,
   };
@@ -280,21 +278,6 @@ function sessionCandidates(ctx, sessionId, session) {
     }
   }
 
-  // A run where sore legs affected it: lighten the leg work in the strength session just before it.
-  const runs = [...ctx.recovery.affectedRuns].sort(byDate).reverse();
-  for (const run of runs) {
-    const before = state.strengthLogs
-      .filter((l) => l.date <= run.date && daysBetween(l.date, run.date) <= 3)
-      .sort(byDate).pop();
-    if (!before || before.sessionId !== sessionId) continue;
-    const target = session.exercises.filter((p) => p.legHeavy && p.sets > 2).sort((a, b) => b.sets - a.sets)[0];
-    if (!target) continue;
-    const to = { ...target, sets: target.sets - 1 };
-    out.push(suggestion('run-affected', 'reduce', sessionId, target, to, `${exName(target)}: drop one set`,
-      `You said sore legs affected your ${RUN_TYPE_LABEL[run.runType] ? RUN_TYPE_LABEL[run.runType].toLowerCase() + ' ' : ''}run on ${formatShort(run.date)}, after Session ${sessionId} on ${formatShort(before.date)}. Take one set off ${exName(target)} (${rxText(to)}) so strength supports your running.`,
-      [run.id, before.id], [`${formatShort(before.date)}: Session ${sessionId}`, `${formatShort(run.date)}: ${Number(run.distanceKm).toFixed(1)} km run, sore legs affected it`]));
-    break;
-  }
   return out;
 }
 
@@ -315,7 +298,7 @@ function notesFor(ctx) {
       notes.push({ key: `benchmark:${latestBench.id}:${overdue ? 'overdue' : 'due'}`, kind: 'benchmark',
         level: overdue ? 'warn' : 'info', action: 'benchmark',
         title: overdue ? 'Benchmark tests overdue' : 'Benchmark tests due',
-        text: `Your last tests were on ${formatShort(latestBench.date)}. Repeat them under similar conditions: press-ups, plank, single-leg bridge, and a 10K or similar effort only when it suits your running.` });
+        text: `Your last tests were on ${formatShort(latestBench.date)}. Repeat them under similar conditions: press-ups, plank, single-leg bridges, squats and lunges.` });
     }
   }
 
@@ -326,10 +309,8 @@ function notesFor(ctx) {
   }
 
   if (recovery.legBlock) {
-    const why = recovery.affectedRuns.length
-      ? `sore legs affected your run on ${formatShort([...recovery.affectedRuns].sort(byDate).pop().date)}`
-      : `you reported leg soreness of ${recovery.soreChecks[recovery.soreChecks.length - 1].legSoreness}/5`;
-    const ids = [...recovery.affectedRuns, ...recovery.soreChecks].map((x) => x.id).join(',');
+    const why = `you reported leg soreness of ${recovery.soreChecks[recovery.soreChecks.length - 1].legSoreness}/5`;
+    const ids = recovery.soreChecks.map((x) => x.id).join(',');
     notes.push({ key: `leg-hold:${ids}`, kind: 'recovery', level: 'info', title: 'Leg increases paused',
       text: `Because ${why}, leg exercises will not progress for now. Upper-body and core work can still move on.` });
   }
@@ -347,38 +328,6 @@ function notesFor(ctx) {
           text: `Your last two Session ${sessionId} workouts had 0 reps in reserve on ${exName(p)}. Keep the same target until it feels manageable; no grinding.` });
       }
     }
-  }
-
-  // Runs feeling harder at the same pace.
-  const byType = {};
-  for (const r of state.runLogs) (byType[r.runType] = byType[r.runType] || []).push(r);
-  for (const [type, runs] of Object.entries(byType)) {
-    const withData = runs.filter((r) => isNum(r.rpe) && paceSecPerKm(r.distanceKm, r.durationSec)).sort(byDate);
-    if (withData.length < 5) continue;
-    const last2 = withData.slice(-2);
-    const prev3 = withData.slice(-5, -2);
-    if (!within(last2[1].date, today, 14)) continue;
-    const paceA = avg(prev3.map((r) => paceSecPerKm(r.distanceKm, r.durationSec)));
-    const paceB = avg(last2.map((r) => paceSecPerKm(r.distanceKm, r.durationSec)));
-    const rpeA = avg(prev3.map((r) => r.rpe));
-    const rpeB = avg(last2.map((r) => r.rpe));
-    if (Math.abs(paceB - paceA) / paceA <= 0.03 && rpeB - rpeA >= 1.5) {
-      notes.push({ key: `run-effort:${type}:${last2[1].id}`, kind: 'running', level: 'warn',
-        title: `${RUN_TYPE_LABEL[type] || 'Your'} runs feel harder`,
-        text: `Effort went from ${rpeA.toFixed(1)} to ${rpeB.toFixed(1)}/10 at about the same pace (${formatPace(paceB)}). Before adding anything, check sleep, stress, illness and your recent training load.` });
-    }
-  }
-
-  // Weekly run volume jump.
-  const thisWeek = weekStart(today);
-  const kmIn = (start) => state.runLogs.filter((r) => r.date >= start && r.date <= addDays(start, 6))
-    .reduce((s, r) => s + (Number(r.distanceKm) || 0), 0);
-  const prev = [1, 2, 3].map((i) => kmIn(addDays(thisWeek, -7 * i)));
-  const prevAvg = avg(prev);
-  const nowKm = kmIn(thisWeek);
-  if (prev.filter((k) => k > 0).length >= 2 && prevAvg > 0 && nowKm > prevAvg * 1.3) {
-    notes.push({ key: `km-jump:${thisWeek}`, kind: 'running', level: 'info', title: 'Big jump in running',
-      text: `This week's running (${nowKm.toFixed(1)} km) is more than 30 % above your recent average (${prevAvg.toFixed(1)} km). More volume is not automatically better; watch how your legs recover.` });
   }
 
   const sig = JSON.stringify(state.schedule);

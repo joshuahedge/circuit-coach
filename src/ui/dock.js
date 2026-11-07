@@ -4,7 +4,7 @@ import { h, append, ICONS, stepper, chips, group, toggle } from './dom.js';
 import { openSheet } from './sheet.js';
 import {
   upNext, rowAt, completeSet, adjustRest, endRest, remainingSec, startHold, holdElapsed, stopHold, cancelHold,
-  clock, setLabel, startWarmup, endWarmup, FLOWS, REST_DEFAULTS, HOLD_LEAD_IN_SEC,
+  clock, setLabel, startWarmup, endWarmup, REST_DEFAULTS, HOLD_LEAD_IN_SEC,
 } from '../timer.js';
 import { sideText, tempoLabel } from '../plan.js';
 import { draftProgress } from '../draft.js';
@@ -13,7 +13,6 @@ import { beep, unlockSound, applyAudioSession } from './sound.js';
 export function timerSettings(app) {
   const s = app.state.settings || {};
   return {
-    flow: s.flow === 'sets' ? 'sets' : 'circuit',
     rest: { short: s.restShort || REST_DEFAULTS.short, long: s.restLong || REST_DEFAULTS.long },
     sound: s.sound !== false,
     throughSilent: Boolean(s.soundThroughSilent),
@@ -22,16 +21,13 @@ export function timerSettings(app) {
 
 export function openTimerSettings(app) {
   const save = (patch) => app.save((x) => ({ ...x, settings: { ...x.settings, ...patch } }));
-  openSheet(app, 'Order and rest', (close) => {
+  openSheet(app, 'Rest and beeps', (close) => {
     const body = h('div');
     const draw = () => {
       const cfg = timerSettings(app);
-      const longLabel = cfg.flow === 'circuit' ? 'Rest between rounds' : 'Rest between sets';
+      const longLabel = 'Rest between rounds';
       body.replaceChildren(
-        group('Order', chips({
-          options: Object.entries(FLOWS).map(([value, label]) => ({ value, label })), value: cfg.flow, label: 'Order',
-          onChange: (v) => { save({ flow: v }); draw(); },
-        }), cfg.flow === 'circuit' ? 'One set of each exercise, then the next round. Both sides back to back.' : 'All sets of one exercise, then the next.'),
+        h('p', { class: 'small muted' }, 'Sessions run as circuits: one set of each exercise, then the next round. Both sides of a set go back to back.'),
         group('Rest between exercises', chips({
           options: [30, 45, 60].map((n) => ({ value: n, label: `${n} s` })), value: cfg.rest.short, label: 'Rest between exercises',
           onChange: (v) => { save({ restShort: v }); },
@@ -55,7 +51,7 @@ export function openTimerSettings(app) {
   });
 }
 
-const KIND_TEXT = { exercise: 'before the next exercise', round: 'before the next round', set: 'before the next set', switch: 'switch sides' };
+const KIND_TEXT = { exercise: 'before the next exercise', round: 'before the next round', switch: 'switch sides' };
 
 function targetText(t) {
   const range = t.min === t.max ? `${t.min}` : `${t.min}–${t.max}`;
@@ -70,20 +66,20 @@ export function workoutDock(app, d, { onFinish, warmupText = '' }) {
   const el = h('div', { class: 'dock', role: 'region', 'aria-label': 'Next set and timer' });
   const put = (...kids) => append(el, kids); // skips nulls (native append would print "null")
   if (app.dockFlash) { el.classList.add('flash'); app.dockFlash = false; }
-  const gear = h('button', { class: 'dock-gear', type: 'button', 'aria-label': 'Order and rest settings', onclick: () => openTimerSettings(app) }, 'Rest');
+  const gear = h('button', { class: 'dock-gear', type: 'button', 'aria-label': 'Rest settings', onclick: () => openTimerSettings(app) }, 'Rest');
   let tick = () => {};
   let lastCount = null;
   const unlock = () => { unlockSound(app.win); applyAudioSession(app); };
 
   const complete = (ref) => {
     unlock();
-    completeSet(d, ref, { flow: cfg.flow, rest: cfg.rest, nowMs: now() });
+    completeSet(d, ref, { rest: cfg.rest, nowMs: now() });
     app.save();
     app.render();
   };
 
   const nextText = () => {
-    const ref = upNext(d, cfg.flow);
+    const ref = upNext(d);
     return ref ? `Next: ${d.exercises[ref.ei].variation} · ${setLabel(d, ref)}` : 'Next: finish the session';
   };
 
@@ -200,7 +196,7 @@ export function workoutDock(app, d, { onFinish, warmupText = '' }) {
       class: 'btn primary dock-btn grow', type: 'button',
       onclick: () => {
         const started = now() >= d.hold.startsAt;
-        stopHold(d, { flow: cfg.flow, rest: cfg.rest, nowMs: now() });
+        stopHold(d, { rest: cfg.rest, nowMs: now() });
         app.save();
         if (!started) app.toast('Stopped before the hold started: nothing logged.');
         app.render();
@@ -248,7 +244,7 @@ export function workoutDock(app, d, { onFinish, warmupText = '' }) {
   else {
     if (d.rest) { endRest(d, true); app.save(); }
     if (fresh && d.warmup && d.warmup.endsAt) { endWarmup(d); app.save(); }
-    const ref = upNext(d, cfg.flow);
+    const ref = upNext(d);
     if (ref) setMode(ref); else doneMode();
   }
   tick();

@@ -8,7 +8,7 @@ import { setupView } from './ui/setup.js';
 import { weekView } from './ui/week.js';
 import { logView } from './ui/log.js';
 import { strengthView } from './ui/strength.js';
-import { runView, checkinView, benchmarkView } from './ui/forms.js';
+import { checkinView, benchmarkView } from './ui/forms.js';
 import { progressView } from './ui/progress.js';
 import { coachView } from './ui/coach.js';
 import { planView, pickBackupFile } from './ui/plan.js';
@@ -17,7 +17,6 @@ import { sessionSummaryView } from './ui/sessionSummary.js';
 export function parseRoute(hash) {
   const [a, b, c] = String(hash || '').replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
   if (a === 'log' && b === 'strength' && (c === 'A' || c === 'B')) return { name: 'strength', sessionId: c };
-  if (a === 'log' && b === 'run') return { name: 'run', id: c || null };
   if (a === 'log' && b === 'checkin') return { name: 'checkin', id: c || null };
   if (a === 'log' && b === 'benchmark') return { name: 'benchmark', id: c || null };
   if (a === 'log' && b === 'summary' && c) return { name: 'summary', id: c };
@@ -28,7 +27,7 @@ export function parseRoute(hash) {
 const routeKey = (r) => JSON.stringify(r);
 
 const VIEWS = {
-  week: weekView, log: logView, strength: strengthView, run: runView, checkin: checkinView,
+  week: weekView, log: logView, strength: strengthView, checkin: checkinView,
   benchmark: benchmarkView, progress: progressView, coach: coachView, plan: planView, summary: sessionSummaryView,
 };
 
@@ -39,7 +38,7 @@ const TABS = [
   { name: 'coach', label: 'Coach', icon: 'coach' },
   { name: 'plan', label: 'Plan', icon: 'plan' },
 ];
-const TAB_OF = { strength: 'log', run: 'log', checkin: 'log', benchmark: 'log', summary: 'log' };
+const TAB_OF = { strength: 'log', checkin: 'log', benchmark: 'log', summary: 'log' };
 
 function tabbar(app) {
   const active = TAB_OF[app.route.name] || app.route.name;

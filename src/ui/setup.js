@@ -1,19 +1,12 @@
-// First run: run days and types, the brief's open baseline questions, optional body numbers, strength days.
+// First run: training days, the brief's open baseline questions, optional body numbers.
 import { h, fill, chips, field, group, numberInput, topbar } from './dom.js';
-import { DAY_KEYS, DAY_NAMES, DAY_SHORT, weekStart } from '../dates.js';
-import { recommendStrengthDays, scheduleWarnings } from '../schedule.js';
+import { weekStart } from '../dates.js';
+import { DEFAULT_DAYS, scheduleWarnings } from '../schedule.js';
+import { dayOf, sessionDayPickers, withSessionDay } from './days.js';
 import { createInitialPlan } from '../plan.js';
-import { tenKFrom } from './forms.js';
 import { pickBackupFile } from './plan.js';
 import { newId } from '../store.js';
 import { SAFETY_NOTE } from '../library.js';
-
-const RUN_CHOICES = [
-  { value: 'easy', label: 'Easy' },
-  { value: 'quality', label: 'Quality' },
-  { value: 'long', label: 'Long' },
-  { value: 'other', label: 'Other' },
-];
 
 export function buildSetupState(state, w, today) {
   const plan = createInitialPlan(today);
@@ -41,7 +34,6 @@ export function buildSetupState(state, w, today) {
     bridgeRight: perLeg(b.bridge, w.conventions.bridgeBaselinePerLeg),
     squats: Number.isFinite(b.squats) ? b.squats : null,
     lunges: perLeg(b.lunges, w.conventions.lungeBaselinePerLeg),
-    tenKSec: tenKFrom(b.tenKMin, b.tenKSec).value ?? null,
     notes: 'Starting baseline',
   };
   return {
@@ -49,7 +41,7 @@ export function buildSetupState(state, w, today) {
     setupDone: true,
     profile: { ...state.profile, ...w.profile },
     conventions: { ...w.conventions },
-    schedule: { runDays: { ...w.runDays }, strengthDays: { ...w.strengthDays } },
+    schedule: { strengthDays: { ...w.strengthDays } },
     block: { number: 1, startDate: weekStart(today) },
     plans: [plan],
     benchmarks: [baseline],
@@ -59,15 +51,13 @@ export function buildSetupState(state, w, today) {
 export function setupView(app) {
   const w = app.setupDraft || (app.setupDraft = {
     step: 0,
-    runDays: { mon: null, wed: null, sat: null },
+    strengthDays: { ...DEFAULT_DAYS },
     conventions: { lungeBaselinePerLeg: null, bridgeBaselinePerLeg: null },
-    base: { pressUps: 20, squats: 20, lunges: 10, plankSec: 60, bridge: 5, tenKMin: 65, tenKSec: 0 },
+    base: { pressUps: 20, squats: 20, lunges: 10, plankSec: 60, bridge: 5 },
     profile: { age: null, heightCm: null, weightKg: null },
-    strengthDays: null,
-    changeDays: false,
   });
   const root = h('div');
-  const STEPS = 5;
+  const STEPS = 4;
 
   const redraw = () => { fill(root, draw()); };
   const goStep = (n) => { w.step = n; redraw(); if (app.win.scrollTo) app.win.scrollTo(0, 0); };
@@ -81,45 +71,15 @@ export function setupView(app) {
     return [
       h('div', { class: 'content' },
         h('div', { class: 'setup-hero' },
-          h('h1', null, 'Strength & Running Coach'),
-          h('p', { class: 'muted' }, 'Two bodyweight strength sessions and three runs a week. Log them here, see your progress, and get suggested plan changes you approve.')),
+          h('h1', null, 'Circuit Coach'),
+          h('p', { class: 'muted' }, 'Two bodyweight circuit sessions a week. The app runs each session with timers, tracks your progress, and suggests plan changes you approve.')),
         h('div', { class: 'card' },
           h('h2', null, 'A few questions first'),
-          h('p', null, 'Which runs you do on which days, how your starting numbers were counted, and which days suit strength. About two minutes.')),
+          h('p', null, 'Which days you train and how your starting numbers were counted. About a minute.')),
         h('p', { class: 'small muted' }, SAFETY_NOTE),
         h('p', { class: 'small muted' }, 'Everything stays on this phone. Back it up from the Plan tab.'),
         h('button', { class: 'btn primary block', type: 'button', onclick: () => goStep(1) }, 'Start'),
         h('button', { class: 'btn ghost block', type: 'button', style: { marginTop: '8px' }, onclick: () => pickBackupFile(app) }, 'Restore from a backup file')),
-    ];
-  }
-
-  function runs() {
-    const days = DAY_KEYS.filter((d) => d in w.runDays);
-    const valid = days.length > 0 && days.every((d) => w.runDays[d]);
-    const longs = days.filter((d) => w.runDays[d] === 'long').length;
-    const toggleDay = (d) => {
-      if (d in w.runDays) delete w.runDays[d];
-      else w.runDays[d] = null;
-      w.strengthDays = null;
-      redraw();
-    };
-    return [
-      topbar('Your runs', { sub: 'Step 1 of 4' }),
-      h('div', { class: 'content' },
-        progress(),
-        group('Which days do you run?',
-          h('div', { class: 'day-pick' }, DAY_KEYS.map((d) => h('button', {
-            type: 'button', class: 'chip', 'aria-pressed': String(d in w.runDays), 'aria-label': DAY_NAMES[d], onclick: () => toggleDay(d),
-          }, DAY_SHORT[d])))),
-        h('div', { class: 'card' },
-          h('h2', null, 'What kind of run is each one?'),
-          h('p', { class: 'small muted' }, 'Quality means the hard one: tempo or intervals. The coach protects your long and quality runs.'),
-          days.map((d) => h('div', { class: 'runday' },
-            h('div', { class: 'name' }, DAY_NAMES[d]),
-            chips({ options: RUN_CHOICES, value: w.runDays[d], label: `${DAY_NAMES[d]} run type`, onChange: (v) => { w.runDays[d] = v; w.strengthDays = null; redraw(); } }))),
-          days.length === 0 ? h('p', { class: 'muted' }, 'Pick your run days above.') : null),
-        longs > 1 ? h('div', { class: 'banner warn' }, 'More than one long run a week is unusual. Fine if intended.') : null,
-        nav(valid)),
     ];
   }
 
@@ -132,7 +92,7 @@ export function setupView(app) {
       onChange: (v) => { c[key] = v; redraw(); },
     });
     return [
-      topbar('Starting numbers', { sub: 'Step 2 of 4' }),
+      topbar('Starting numbers', { sub: 'Step 2 of 3' }),
       h('div', { class: 'content' },
         progress(),
         h('div', { class: 'card' },
@@ -147,10 +107,7 @@ export function setupView(app) {
             field('Squats', numberInput({ value: b.squats, onInput: (n) => { b.squats = n; } })),
             field('Reverse lunges', numberInput({ value: b.lunges, onInput: (n) => { b.lunges = n; } })),
             field('Plank', numberInput({ value: b.plankSec, unit: 's', onInput: (n) => { b.plankSec = n; } })),
-            field('SL glute bridge', numberInput({ value: b.bridge, onInput: (n) => { b.bridge = n; } }))),
-          group('10K time', h('div', { class: 'grid2' },
-            numberInput({ value: b.tenKMin, unit: 'min', label: '10K minutes', onInput: (n) => { b.tenKMin = n; } }),
-            numberInput({ value: b.tenKSec, unit: 's', label: '10K seconds', max: 59, onInput: (n) => { b.tenKSec = n; } })))),
+            field('SL glute bridge', numberInput({ value: b.bridge, onInput: (n) => { b.bridge = n; } })))),
         nav(valid)),
     ];
   }
@@ -158,7 +115,7 @@ export function setupView(app) {
   function about() {
     const p = w.profile;
     return [
-      topbar('About you', { sub: 'Step 3 of 4 · optional' }),
+      topbar('About you', { sub: 'Step 3 of 3 · optional' }),
       h('div', { class: 'content' },
         progress(),
         h('div', { class: 'card' },
@@ -167,55 +124,36 @@ export function setupView(app) {
             field('Age', numberInput({ value: p.age, onInput: (n) => { p.age = Number.isFinite(n) ? n : null; } })),
             field('Height', numberInput({ value: p.heightCm, unit: 'cm', onInput: (n) => { p.heightCm = Number.isFinite(n) ? n : null; } })),
             field('Weight', numberInput({ value: p.weightKg, unit: 'kg', decimal: true, onInput: (n) => { p.weightKg = Number.isFinite(n) ? n : null; } })))),
-        nav(true, 'Next')),
+        nav(true, 'Finish', finish)),
     ];
   }
 
-  function strengthDays() {
-    const rec = recommendStrengthDays(w.runDays);
-    if (!w.strengthDays) w.strengthDays = { ...rec.strengthDays };
-    const dayOf = (id) => Object.keys(w.strengthDays).find((d) => w.strengthDays[d] === id);
-    const setDay = (id, d) => {
-      const other = id === 'A' ? 'B' : 'A';
-      const next = { [d]: id };
-      const od = dayOf(other);
-      if (od && od !== d) next[od] = other;
-      w.strengthDays = next;
-      redraw();
-    };
-    const warnings = scheduleWarnings({ runDays: w.runDays, strengthDays: w.strengthDays });
-    const isRec = JSON.stringify(Object.entries(w.strengthDays).sort()) === JSON.stringify(Object.entries(rec.strengthDays).sort());
-    const valid = Boolean(dayOf('A') && dayOf('B'));
-    const finish = () => {
-      const today = app.today();
-      app.setupDraft = null;
-      app.update((s) => buildSetupState(s, w, today), "You're set up. Here's your week.");
-      app.go('#/week');
-    };
+  function trainingDays() {
+    const pick = (id, d) => { w.strengthDays = withSessionDay(w.strengthDays, id, d); redraw(); };
+    const warnings = scheduleWarnings({ strengthDays: w.strengthDays });
+    const valid = Boolean(dayOf(w.strengthDays, 'A') && dayOf(w.strengthDays, 'B'));
     return [
-      topbar('Strength days', { sub: 'Step 4 of 4' }),
+      topbar('Your training days', { sub: 'Step 1 of 3' }),
       h('div', { class: 'content' },
         progress(),
         h('div', { class: 'card accent-strength' },
-          h('h2', null, isRec ? 'Recommended' : 'Your choice'),
-          ['A', 'B'].map((id) => h('p', { class: 'strong' }, `${DAY_NAMES[dayOf(id)] || '–'}: Session ${id}`)),
-          isRec ? h('ul', { class: 'small muted' }, rec.reasons.map((r) => h('li', null, r))) : null),
-        warnings.map((x) => h('div', { class: `banner ${x.level === 'warn' ? 'warn' : 'run'}` }, x.text)),
-        w.changeDays
-          ? h('div', { class: 'card' },
-            ['A', 'B'].map((id) => group(`Session ${id}`, h('div', { class: 'day-pick' }, DAY_KEYS.map((d) => h('button', {
-              type: 'button', class: 'chip', 'aria-pressed': String(dayOf(id) === d), 'aria-label': `Session ${id} on ${DAY_NAMES[d]}`,
-              onclick: () => setDay(id, d),
-            }, DAY_SHORT[d]))))),
-            !isRec ? h('button', { class: 'link', type: 'button', onclick: () => { w.strengthDays = { ...rec.strengthDays }; redraw(); } }, 'Use the recommendation') : null)
-          : h('button', { class: 'link', type: 'button', onclick: () => { w.changeDays = true; redraw(); } }, 'Choose other days'),
-        h('p', { class: 'small muted' }, 'You can change the schedule any time from the Plan tab.'),
-        nav(valid, 'Finish', finish)),
+          h('h2', null, 'Two sessions a week'),
+          h('p', { class: 'small muted' }, 'Pick a day for each. Two or three days between them suits recovery; you can move them any time from the Plan tab.'),
+          sessionDayPickers(w.strengthDays, pick)),
+        warnings.map((x) => h('div', { class: 'banner warn' }, x.text)),
+        nav(valid)),
     ];
   }
 
+  function finish() {
+    const today = app.today();
+    app.setupDraft = null;
+    app.update((st) => buildSetupState(st, w, today), "You're set up. Here's your week.");
+    app.go('#/week');
+  }
+
   function draw() {
-    return [welcome, runs, baselines, about, strengthDays][w.step]();
+    return [welcome, trainingDays, baselines, about][w.step]();
   }
   redraw();
   return root;

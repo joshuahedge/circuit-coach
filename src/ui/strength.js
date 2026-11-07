@@ -2,25 +2,17 @@
 import { h, append, ICONS, topbar, stepper, scaleChips, toggle, field, group, numberInput } from './dom.js';
 import { workoutDock, openTimerSettings, timerSettings } from './dock.js';
 import { unlockSound } from './sound.js';
-import { completeSet, upNext, FLOWS } from '../timer.js';
+import { completeSet, upNext } from '../timer.js';
 import { openSheet, confirmSheet } from './sheet.js';
 import { EXERCISES, WARMUPS, COOLDOWN, REST_NOTE, SAFETY_NOTE } from '../library.js';
-import { currentPlan, estimateMinutes, prescriptionLabel, sessionForToday, tempoLabel } from '../plan.js';
-import { runProtection } from '../schedule.js';
-import { createDraft, setRunProtect, finishDraft, draftProgress, elapsedMinutes } from '../draft.js';
+import { currentPlan, estimateMinutes, prescriptionLabel, tempoLabel } from '../plan.js';
+import { createDraft, finishDraft, draftProgress, elapsedMinutes } from '../draft.js';
 import { coachReview } from '../coach.js';
 import { newId } from '../store.js';
 import { formatDay } from '../dates.js';
 
 const SIDE_LABEL = { L: 'Left', R: 'Right', Y: 'Y', T: 'T', W: 'W' };
 const SKIP_REASONS = ['Short on time', 'Tired', 'Sore', 'Pain', 'No space', 'Other'];
-
-function protectionFor(app, sessionId, date) {
-  const session = currentPlan(app.state).sessions[sessionId];
-  const prot = runProtection(app.state, date);
-  const trims = session.exercises.some((p) => p.runProtectSets && p.runProtectSets < p.sets);
-  return { ...prot, applies: prot.longRunSoon && trims };
-}
 
 function howTo(exerciseId) {
   const ex = EXERCISES[exerciseId];
@@ -29,13 +21,11 @@ function howTo(exerciseId) {
     h('ol', null, ex.howTo.map((t) => h('li', null, t))));
 }
 
-// Start a session straight away (the Week screen's button). The lighter run-protect version is on when it
-// applies; the switch stays on the workout screen.
+// Start a session straight away (the Week screen's button).
 export function startSession(app, sessionId) {
   const d = app.state.draft;
   if (!d) {
-    const prot = protectionFor(app, sessionId, app.today());
-    app.save((x) => ({ ...x, draft: createDraft(x, sessionId, app.today(), { runProtect: prot.applies, nowIso: app.now().toISOString() }) }));
+    app.save((x) => ({ ...x, draft: createDraft(x, sessionId, app.today(), { nowIso: app.now().toISOString() }) }));
   }
   app.go(`#/log/strength/${sessionId}`);
   if (app.route.name === 'strength') app.render();
@@ -53,30 +43,18 @@ function preview(app, sessionId) {
   const s = app.state;
   const today = app.today();
   const session = currentPlan(s).sessions[sessionId];
-  const prot = protectionFor(app, sessionId, today);
-  let runProtect = prot.applies;
-  const list = h('div');
-  const drawList = () => {
-    const sess = sessionForToday(session, { runProtect });
-    list.replaceChildren(h('div', { class: 'list' }, sess.exercises.map((p) => h('div', { class: 'list-item' },
-      h('span', { class: 'grow' }, h('b', null, p.variation),
-        h('div', { class: 'small muted' }, [prescriptionLabel(p), tempoLabel(p)].filter(Boolean).join(' · ')))))));
-  };
-  drawList();
+  const list = h('div', { class: 'list' }, session.exercises.map((p) => h('div', { class: 'list-item' },
+    h('span', { class: 'grow' }, h('b', null, p.variation),
+      h('div', { class: 'small muted' }, [prescriptionLabel(p), tempoLabel(p)].filter(Boolean).join(' · '))))));
   const start = () => {
     // The date is read at the tap: this screen may have been drawn the evening before.
-    app.update((x) => ({ ...x, draft: createDraft(x, sessionId, app.today(), { runProtect, nowIso: app.now().toISOString() }) }));
+    app.update((x) => ({ ...x, draft: createDraft(x, sessionId, app.today(), { nowIso: app.now().toISOString() }) }));
   };
   return h('div', null,
     topbar(`Session ${sessionId}`, { sub: session.focus, back: () => app.go('#/log') }),
     h('div', { class: 'content' },
       h('p', { class: 'muted' }, `About ${estimateMinutes(session)} min including warm-up and cool-down.`),
       coachBanner(app, sessionId),
-      prot.applies ? h('div', { class: 'banner run' },
-        h('div', { class: 'switch-row' },
-          h('span', null, h('b', null, `Long run on ${prot.longDayName}. `), 'Use the lighter version: 2 sets of the single-leg leg work, nothing close to failure.'),
-          toggle({ checked: runProtect, label: 'Use the lighter version', onChange: (on) => { runProtect = on; drawList(); } }))) : null,
-      !prot.longRunSoon && prot.qualityTomorrow ? h('div', { class: 'banner run' }, `Quality run on ${prot.qualityDayName}: keep the leg sets 2–3 reps short of failure.`) : null,
       h('div', { class: 'card' }, h('h3', null, 'Warm-up · 5 min'), h('p', { class: 'small' }, WARMUPS[sessionId])),
       list,
       h('p', { class: 'small muted' }, REST_NOTE),
@@ -135,7 +113,7 @@ function setRow(app, e, row, ref, isNext) {
   tick.addEventListener('click', () => {
     unlockSound(app.win);
     const cfg = timerSettings(app);
-    completeSet(app.state.draft, ref, { flow: cfg.flow, rest: cfg.rest, nowMs: app.now().getTime() });
+    completeSet(app.state.draft, ref, { rest: cfg.rest, nowMs: app.now().getTime() });
     app.save();
     app.render();
   });
@@ -264,9 +242,8 @@ function finishSheet(app, sessionId) {
 
 function logger(app, sessionId) {
   const d = app.state.draft;
-  const prot = protectionFor(app, sessionId, d.date);
   const cfg = timerSettings(app);
-  const next = upNext(d, cfg.flow);
+  const next = upNext(d);
   const p = draftProgress(d);
   const timer = h('span', { class: 'timer' });
   const tickTimer = () => {
@@ -286,11 +263,6 @@ function logger(app, sessionId) {
     }),
     h('div', { class: 'content' },
       h('div', { class: 'progressbar', style: { margin: '0 0 12px' } }, h('i', { style: { width: `${p.total ? Math.round((p.done / p.total) * 100) : 0}%` } })),
-      prot.applies ? h('div', { class: 'banner run' },
-        h('div', { class: 'switch-row' },
-          h('span', null, h('b', null, `Long run on ${prot.longDayName}. `), 'Lighter version on.'),
-          toggle({ checked: d.runProtect, label: 'Use the lighter version', onChange: (on) => { app.state.draft = setRunProtect(d, app.state, on); app.save(); app.render(); } }))) : null,
-      !prot.longRunSoon && prot.qualityTomorrow ? h('div', { class: 'banner run' }, `Quality run on ${prot.qualityDayName}: keep leg sets 2–3 reps short of failure.`) : null,
       d.editingId ? h('div', { class: 'banner warn' }, `Editing the session from ${formatDay(d.date)}. Save it again from Finish.`) : null,
       p.done === 0 && !d.editingId ? coachBanner(app, sessionId) : null,
       d.energyBefore === null || p.done === 0 ? h('div', { class: 'card' },
@@ -298,7 +270,7 @@ function logger(app, sessionId) {
         scaleChips({ min: 1, max: 5, value: d.energyBefore, label: 'Energy before', lowLabel: 'Drained', highLabel: 'Great', onChange: (v) => { d.energyBefore = v; app.save(); } })) : null,
       h('details', { class: 'explain', open: p.done === 0 ? true : null }, h('summary', null, 'Warm-up · 5 min'), h('div', null, WARMUPS[sessionId])),
       h('div', { class: 'row between', style: { margin: '0 4px 10px' } },
-        h('span', { class: 'small muted' }, `${FLOWS[cfg.flow]} · rest ${cfg.rest.short}/${cfg.rest.long} s`),
+        h('span', { class: 'small muted' }, `Circuit · rest ${cfg.rest.short} s between exercises, ${cfg.rest.long} s between rounds`),
         h('button', { class: 'link', type: 'button', onclick: () => openTimerSettings(app) }, 'Change')),
       d.exercises.map((e, ei) => exerciseCard(app, e, ei, next)),
       h('details', { class: 'explain' }, h('summary', null, 'Cool-down · 4–5 min'), h('div', null, COOLDOWN)),

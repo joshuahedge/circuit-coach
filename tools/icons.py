@@ -1,7 +1,9 @@
-"""Draws the app icons with Pillow: a dark tile, an orange rising line (strength) and a blue dot (running).
+"""Draws the app icons with Pillow: a dark tile, an orange ring of five stations (a circuit) and a light
+rising chevron inside it (getting stronger).
 
 Usage: python tools/icons.py   (writes into icons/)
 """
+import math
 import os
 from PIL import Image, ImageDraw
 
@@ -9,8 +11,12 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'icons')
 BG = (18, 22, 28)
 ORANGE = (255, 138, 76)
-BLUE = (90, 169, 255)
+LIGHT = (246, 238, 228)
 SS = 4  # supersampling for smooth edges
+
+
+def dot(d, x, y, w, fill):
+    d.ellipse((x - w / 2, y - w / 2, x + w / 2, y + w / 2), fill=fill)
 
 
 def draw(size, inset):
@@ -19,16 +25,24 @@ def draw(size, inset):
     d = ImageDraw.Draw(img)
     pad = s * inset
     span = s - 2 * pad
-    # Rising line: three segments, round joints.
-    pts = [(pad + span * 0.04, pad + span * 0.78), (pad + span * 0.36, pad + span * 0.48),
-           (pad + span * 0.58, pad + span * 0.64), (pad + span * 0.92, pad + span * 0.24)]
-    w = int(span * 0.12)
-    d.line(pts, fill=ORANGE, width=w, joint='curve')
+    cx, cy = s / 2, s / 2
+    w = span * 0.12
+    r = span * 0.5 - w * 0.9
+    # The circuit: a ring of five stations, round after round.
+    gap = 34
+    for i in range(5):
+        a0 = -90 + i * 72 + gap / 2
+        a1 = a0 + 72 - gap
+        d.arc((cx - r - w / 2, cy - r - w / 2, cx + r + w / 2, cy + r + w / 2), a0, a1, fill=ORANGE, width=int(w))
+        for a in (a0, a1):
+            t = math.radians(a)
+            dot(d, cx + r * math.cos(t), cy + r * math.sin(t), w, ORANGE)
+    # Rising chevron in the middle.
+    cw = span * 0.1
+    pts = [(cx - span * 0.17, cy + span * 0.09), (cx, cy - span * 0.08), (cx + span * 0.17, cy + span * 0.09)]
+    d.line(pts, fill=LIGHT, width=int(cw), joint='curve')
     for x, y in (pts[0], pts[-1]):
-        d.ellipse((x - w / 2, y - w / 2, x + w / 2, y + w / 2), fill=ORANGE)
-    r = span * 0.11
-    cx, cy = pad + span * 0.78, pad + span * 0.80
-    d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=BLUE)
+        dot(d, x, y, cw, LIGHT)
     return img.resize((size, size), Image.LANCZOS)
 
 

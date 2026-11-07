@@ -8,7 +8,7 @@ import { completeSet, upNext } from '../timer.js';
 import { openSheet, confirmSheet } from './sheet.js';
 import { EXERCISES, WARMUPS, COOLDOWN, REST_NOTE, SAFETY_NOTE } from '../library.js';
 import { currentPlan, estimateMinutes, prescriptionLabel, tempoLabel } from '../plan.js';
-import { createDraft, finishDraft, draftProgress, elapsedMinutes } from '../draft.js';
+import { createDraft, finishDraft, draftProgress, elapsedMinutes, swapForToday } from '../draft.js';
 import { coachReview } from '../coach.js';
 import { newId } from '../store.js';
 import { formatDay } from '../dates.js';
@@ -129,9 +129,7 @@ function exerciseMenu(app, e) {
   const t = e.target;
   openSheet(app, e.variation, (close) => {
     const swapTo = (name) => {
-      e.variation = name;
-      e.status = name === t.variation ? 'pending' : 'modified';
-      e.reason = name === t.variation ? '' : `Swapped for ${name}`;
+      swapForToday(e, name);
       app.save();
       close();
       app.render();

@@ -1,5 +1,6 @@
 import { describe, it, expect } from './harness.js';
-import { createDraft, finishDraft, draftProgress, elapsedMinutes } from '../src/draft.js';
+import { createDraft, finishDraft, draftProgress, elapsedMinutes, swapForToday } from '../src/draft.js';
+import { prescriptionLabel } from '../src/plan.js';
 import { setupState, addLog } from './fixtures.js';
 
 describe('draft', () => {
@@ -13,6 +14,34 @@ describe('draft', () => {
     expect(d.exercises[3].rows.slice(0, 3).map((r) => r.side)).toEqual(['Y', 'T', 'W']);
     expect(d.exercises[1].rows.length).toBe(3);
     expect(d.exercises[1].rows[0].side).toBe(null);
+  });
+
+  it('a two-legged swap logs one row per set, and swapping back restores the sides', () => {
+    const d = createDraft(setupState(), 'B', '2026-11-06');
+    const calf = d.exercises.find((e) => e.exerciseId === 'sl-calf-raise');
+    const planned = calf.variation;
+    calf.rows[0].value = 14;
+    swapForToday(calf, 'Double-leg slow calf raise');
+    expect(calf.status).toBe('modified');
+    expect(calf.target.sides).toBe(null);
+    expect(prescriptionLabel(calf.target).includes('per leg')).toBe(false);
+    expect(calf.rows.length).toBe(calf.target.sets);
+    expect(calf.rows[0].value).toBe(14);
+    swapForToday(calf, 'Calf raise hold');
+    expect(calf.target.sides).toEqual(['L', 'R']);
+    swapForToday(calf, planned);
+    expect(calf.status).toBe('pending');
+    expect(calf.plannedTarget).toBe(undefined);
+    expect(calf.rows.length).toBe(calf.target.sets * 2);
+    const squat = d.exercises.find((e) => e.exerciseId === 'tempo-squat');
+    swapForToday(squat, 'Split squat');
+    expect(prescriptionLabel(squat.target)).toContain('per leg');
+    expect(squat.rows.length).toBe(squat.target.sets * 2);
+    const rdl = d.exercises.find((e) => e.exerciseId === 'sl-rdl');
+    rdl.rows[0].done = true;
+    swapForToday(rdl, 'Good morning (both legs)');
+    expect(rdl.variation).toBe('Good morning (both legs)');
+    expect(rdl.target.sides).toEqual(['L', 'R']);
   });
 
   it('prefills from the last session of the same exercise', () => {

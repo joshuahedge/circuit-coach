@@ -6,7 +6,7 @@ import { howToFor } from '../routines.js';
 import { openSheet, confirmSheet } from './sheet.js';
 import { openRxEditor, copySummary } from './coach.js';
 import { EXERCISES, WARMUPS, COOLDOWN, REST_NOTE, LIMITATION_NOTE, SAFETY_NOTE } from '../library.js';
-import { currentPlan, estimateMinutes, prescriptionLabel, tempoLabel, withPrescription } from '../plan.js';
+import { currentPlan, estimateMinutes, prescriptionLabel, tempoLabel, withPrescription, sidesFor } from '../plan.js';
 import { scheduleWarnings } from '../schedule.js';
 import { DAY_KEYS, DAY_SHORT, formatShort } from '../dates.js';
 import { emptyState, makeBackup, readBackup } from '../store.js';
@@ -41,7 +41,7 @@ function exerciseSheet(app, sessionId, p) {
       h('span', { class: 'grow' }, h('b', null, sw.name), h('div', { class: 'small muted' }, sw.note)),
       h('button', {
         class: 'btn small', type: 'button',
-        onclick: () => { close(); changePlan(app, sessionId, p, { ...p, variation: sw.name }, `You swapped ${p.variation} for ${sw.name}`); },
+        onclick: () => { close(); changePlan(app, sessionId, p, { ...p, variation: sw.name, sides: sidesFor(p.exerciseId, sw.name, p) }, `You swapped ${p.variation} for ${sw.name}`); },
       }, 'Use')))),
     h('div', { class: 'section-title' }, 'Harder versions, in order'),
     h('div', { class: 'list' }, ex.ladder.map((l) => h('div', { class: 'list-item' },

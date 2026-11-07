@@ -1,6 +1,6 @@
 // The strength session being logged. It lives in state.draft and is saved on every tap, so closing the app
 // mid-workout loses nothing. finishDraft turns it into a strength log.
-import { currentPlan } from './plan.js';
+import { currentPlan, sidesFor } from './plan.js';
 
 export function targetOf(p) {
   return { variation: p.variation, sets: p.sets, min: p.min, max: p.max, unit: p.unit, sides: p.sides, tempoDown: p.tempoDown, pause: p.pause, legHeavy: p.legHeavy };
@@ -70,6 +70,35 @@ export function createDraft(state, sessionId, today, { nowIso = new Date().toISO
 }
 
 // Reopen a saved session for editing. Saving replaces the log; discarding leaves it untouched.
+// Swap an exercise for today (or back to the planned version). A swap done on both legs at once, or one
+// leg at a time, logs different rows, so the target and rows follow its sides, keeping the numbers already
+// set, but only while nothing of the exercise is ticked. The planned target is kept to swap back to.
+export function swapForToday(e, name) {
+  const from = { variation: e.variation, sides: e.target.sides };
+  const planned = e.plannedTarget || e.target;
+  const back = name === planned.variation;
+  e.variation = name;
+  e.status = back ? 'pending' : 'modified';
+  e.reason = back ? '' : `Swapped for ${name}`;
+  const sides = back && e.plannedTarget ? planned.sides : sidesFor(e.exerciseId, name, from);
+  if (e.rows.some((r) => r.done)) return;
+  const same = JSON.stringify(sides || null) === JSON.stringify(e.target.sides || null);
+  if (back) {
+    e.target = e.plannedTarget || { ...e.target, sides };
+    delete e.plannedTarget;
+  } else if (!same) {
+    if (!e.plannedTarget) e.plannedTarget = e.target;
+    e.target = { ...e.target, sides };
+  }
+  if (same) return;
+  const rows = [];
+  for (let set = 1; set <= e.target.sets; set++) {
+    const was = e.rows.find((r) => r.set === set) || e.rows[e.rows.length - 1];
+    for (const side of sides || [null]) rows.push({ set, side, value: was ? was.value : e.target.min, last: null, rir: null, done: false });
+  }
+  e.rows = rows;
+}
+
 export function draftFromLog(log) {
   return {
     sessionId: log.sessionId,

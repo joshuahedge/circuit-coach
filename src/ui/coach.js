@@ -2,7 +2,7 @@
 import { h, fill, topbar, stepper, field } from './dom.js';
 import { openSheet, confirmSheet } from './sheet.js';
 import { coachReview, acceptSuggestion, rejectSuggestion, dismissNote, canUndoDecision, undoDecision, exerciseStanding } from '../coach.js';
-import { currentPlan, prescriptionLabel, revertPlan, tempoLabel } from '../plan.js';
+import { currentPlan, prescriptionLabel, revertPlan, tempoLabel, sidesFor } from '../plan.js';
 import { EXERCISES } from '../library.js';
 import { buildSummary } from '../summary.js';
 import { formatShort } from '../dates.js';
@@ -28,8 +28,9 @@ export function openRxEditor(app, { title, p, onSave, saveLabel = 'Save' }) {
         onchange: (e) => {
           const name = e.target.value;
           const rung = ex.ladder.find((l) => l.name === name);
+          d.sides = sidesFor(ex.id, name, d);
           d.variation = name;
-          if (rung) { d.min = rung.min; d.max = rung.max; d.sides = rung.sides || ex.sides; }
+          if (rung) { d.min = rung.min; d.max = rung.max; }
           draw();
         },
       }, variations.map((v) => h('option', { value: v }, v)));

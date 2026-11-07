@@ -67,6 +67,18 @@ export function currentPlan(state) {
   return state.plans[state.plans.length - 1];
 }
 
+// Sides to log for a version or swap, given the current prescription `from`. A version that sets its own
+// (a two-legged swap, an archer press-up) uses them; moving off such a version goes back to the exercise's;
+// otherwise the current sides stay, so a lunge logged "in total" stays that way.
+export function sidesFor(exerciseId, variation, from = null) {
+  const ex = EXERCISES[exerciseId];
+  const own = (name) => [...ex.ladder, ...ex.swaps].find((x) => x.name === name && x.sides !== undefined);
+  const to = own(variation);
+  if (to) return to.sides;
+  if (from && own(from.variation)) return ex.sides;
+  return from ? from.sides : ex.sides;
+}
+
 export function sideCount(p) {
   return p.sides ? p.sides.length : 1;
 }

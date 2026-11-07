@@ -215,6 +215,20 @@ describe('ui: logging', () => {
     expect(root.querySelector('.sheet').textContent).toContain('Save session');
   });
 
+  it('swapping for a two-legged version drops "per leg" and its left/right rows', () => {
+    const { app, root } = mount(setupState(), '2026-11-06');
+    app.go('#/log/strength/B');
+    click(root, 'Start Session B');
+    const menu = all(root).find((b) => (b.getAttribute('aria-label') || '').startsWith('More for Single-leg calf raise'));
+    menu.click();
+    all(root.querySelector('.sheet')).find((b) => b.textContent.startsWith('Double-leg slow calf raise')).click();
+    const card = root.querySelector('section[aria-label="Double-leg slow calf raise"]');
+    expect(card.querySelector('.rx').textContent.includes('per leg')).toBe(false);
+    expect(card.textContent.includes('Left')).toBe(false);
+    const calf = app.state.draft.exercises.find((e) => e.exerciseId === 'sl-calf-raise');
+    expect(calf.rows.length).toBe(calf.target.sets);
+  });
+
   it('rest settings change the rest times', () => {
     const { app, root } = mount(setupState(), '2026-11-03');
     app.go('#/log/strength/A');

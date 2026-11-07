@@ -1,5 +1,7 @@
 // Exercise library: bodyweight only, mat and a small space. No burpees or mountain climbers, ever.
 // ladder: harder variations in order, each with its own starting range (and sides when they change).
+// swaps: alternatives at the same numbers; `sides` only where they are done differently (both legs at once,
+// or one leg at a time).
 // levers: the order the coach tries when an exercise is ready to progress in the intensify phase.
 // cap: the highest top-of-range the coach will add reps to before switching to a lever.
 
@@ -80,7 +82,7 @@ export const EXERCISES = {
     ],
     cues: '2 s pause at the top, pelvis level. Start below your limit.',
     swaps: [
-      { name: 'Glute bridge (both legs) with 3 s pause', note: 'Easier: both feet down.' },
+      { name: 'Glute bridge (both legs) with 3 s pause', note: 'Easier: both feet down.', sides: null },
       { name: 'Bridge march', note: 'Hold the bridge and lift one foot at a time.' },
     ],
   },
@@ -96,8 +98,8 @@ export const EXERCISES = {
     ],
     cues: 'Slow, small, controlled shoulder-blade movement. No momentum.',
     swaps: [
-      { name: 'Prone swimmers', note: 'Slide the arms from W to Y and back while hovering.' },
-      { name: 'Superman hold', note: 'Lift arms and legs and hold; count reps as 3 s holds.' },
+      { name: 'Prone swimmers', note: 'Slide the arms from W to Y and back while hovering.', sides: null },
+      { name: 'Superman hold', note: 'Lift arms and legs and hold; count reps as 3 s holds.', sides: null },
     ],
   },
   'dead-bug': {
@@ -135,7 +137,7 @@ export const EXERCISES = {
     cues: 'Hinge at the hip, reach long, square hips, 3 s lowering.',
     swaps: [
       { name: 'Kickstand Romanian deadlift', note: 'Back toe touches the floor for balance.' },
-      { name: 'Good morning (both legs)', note: 'Easier hinge with hands on the chest.' },
+      { name: 'Good morning (both legs)', note: 'Easier hinge with hands on the chest.', sides: null },
     ],
   },
   'tempo-squat': {
@@ -155,7 +157,7 @@ export const EXERCISES = {
     cues: '3 s down, 1–2 s pause, smooth ascent.',
     swaps: [
       { name: 'Pause squat', note: 'Normal speed down, 3 s pause at the bottom.' },
-      { name: 'Split squat', note: 'One leg at a time; log the reps per leg in the notes.' },
+      { name: 'Split squat', note: 'One leg at a time, logged per leg.', sides: LR },
     ],
   },
   'pike-push-up': {
@@ -193,7 +195,7 @@ export const EXERCISES = {
     ],
     cues: '2 s up, 3 s down, pause at the top.',
     swaps: [
-      { name: 'Double-leg slow calf raise', note: 'Both feet; 3 s up, 3 s down.' },
+      { name: 'Double-leg slow calf raise', note: 'Both feet; 3 s up, 3 s down.', sides: null },
       { name: 'Calf raise hold', note: 'Hold the top position; count reps as 5 s holds.' },
     ],
   },

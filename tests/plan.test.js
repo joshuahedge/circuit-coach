@@ -4,7 +4,7 @@ import { VARIATION_IMAGES } from '../src/routines.js';
 import { exerciseFigure } from '../src/ui/figure.js';
 import {
   defaultSessions, createInitialPlan, currentPlan, prescriptionLabel, tempoLabel, sideCount, estimateMinutes,
-  withPrescription, revertPlan, ladderIndex, samePrescription,
+  withPrescription, revertPlan, ladderIndex, samePrescription, sidesFor,
 } from '../src/plan.js';
 
 const T = '2026-11-09';
@@ -57,6 +57,16 @@ describe('library', () => {
     const borrowed = exerciseFigure('reverse-lunge', 'Reverse lunge to knee drive');
     expect(borrowed.querySelector('img').getAttribute('src')).toBe('assets/exercises/reverse-lunge.svg');
     expect(borrowed.textContent).toContain('Picture shows the reverse lunge');
+  });
+
+  it('a swap or version uses its own sides; otherwise the current ones stay', () => {
+    const LR = ['L', 'R'];
+    expect(sidesFor('sl-calf-raise', 'Double-leg slow calf raise', { variation: 'Single-leg calf raise', sides: LR })).toBe(null);
+    expect(sidesFor('sl-calf-raise', 'Single-leg calf raise', { variation: 'Double-leg slow calf raise', sides: null })).toEqual(LR);
+    expect(sidesFor('reverse-lunge', 'Split squat', { variation: 'Reverse lunge', sides: null })).toBe(null);
+    expect(sidesFor('press-up', 'Assisted archer press-up', { variation: 'Press-up', sides: null })).toEqual(LR);
+    expect(sidesFor('tempo-squat', 'Split squat', { variation: 'Tempo squat', sides: null })).toEqual(LR);
+    expect(sidesFor('prone-ytw', 'Prone swimmers', { variation: 'Prone Y–T–W raises', sides: ['Y', 'T', 'W'] })).toBe(null);
   });
 
   it('every exercise has how-to steps, a ladder and swaps', () => {

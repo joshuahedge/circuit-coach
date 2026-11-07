@@ -2,6 +2,7 @@
 import { h, fill, ICONS, topbar, field, numberInput } from './dom.js';
 import { dayOf, sessionDayPickers, withSessionDay } from './days.js';
 import { exerciseFigure, imageCredits } from './figure.js';
+import { howToFor } from '../routines.js';
 import { openSheet, confirmSheet } from './sheet.js';
 import { openRxEditor, copySummary } from './coach.js';
 import { EXERCISES, WARMUPS, COOLDOWN, REST_NOTE, LIMITATION_NOTE, SAFETY_NOTE } from '../library.js';
@@ -20,11 +21,11 @@ function changePlan(app, sessionId, from, to, reason) {
 function exerciseSheet(app, sessionId, p) {
   const ex = EXERCISES[p.exerciseId];
   openSheet(app, p.variation, (close) => h('div', null,
-    exerciseFigure(p.exerciseId),
+    exerciseFigure(p.exerciseId, p.variation),
     h('div', { class: 'card' },
       h('div', { class: 'strong', style: { color: 'var(--strength)' } }, [prescriptionLabel(p), tempoLabel(p)].filter(Boolean).join(' · ')),
-      h('p', { class: 'small muted' }, `${ex.cues} Set since ${formatShort(p.since)}.`),
-      h('ol', { class: 'small' }, ex.howTo.map((t) => h('li', null, t)))),
+      h('p', { class: 'small muted' }, `${howToFor(p.exerciseId, p.variation).cues} Set since ${formatShort(p.since)}.`),
+      h('ol', { class: 'small' }, howToFor(p.exerciseId, p.variation).howTo.map((t) => h('li', null, t)))),
     h('button', {
       class: 'btn primary block', type: 'button',
       onclick: () => {

@@ -2,6 +2,7 @@
 import { h, append, ICONS, topbar, stepper, scaleChips, toggle, field, group, numberInput } from './dom.js';
 import { workoutDock, openTimerSettings, timerSettings } from './dock.js';
 import { exerciseFigure } from './figure.js';
+import { howToFor } from '../routines.js';
 import { unlockSound } from './sound.js';
 import { completeSet, upNext } from '../timer.js';
 import { openSheet, confirmSheet } from './sheet.js';
@@ -15,12 +16,12 @@ import { formatDay } from '../dates.js';
 const SIDE_LABEL = { L: 'Left', R: 'Right', Y: 'Y', T: 'T', W: 'W' };
 const SKIP_REASONS = ['Short on time', 'Tired', 'Sore', 'Pain', 'No space', 'Other'];
 
-function howTo(exerciseId) {
-  const ex = EXERCISES[exerciseId];
+function howTo(exerciseId, variation) {
+  const steps = howToFor(exerciseId, variation);
   return h('details', { class: 'howto' },
     h('summary', null, 'How to'),
-    exerciseFigure(exerciseId),
-    h('ol', null, ex.howTo.map((t) => h('li', null, t))));
+    exerciseFigure(exerciseId, variation),
+    h('ol', null, steps.howTo.map((t) => h('li', null, t))));
 }
 
 // Start a session straight away (the Week screen's button).
@@ -176,8 +177,8 @@ function exerciseCard(app, e, ei, next) {
         skipped ? null : pain,
         h('button', { class: 'more', type: 'button', 'aria-label': `More for ${e.variation}: swap or skip`, onclick: () => exerciseMenu(app, e) }, '⋯')),
       h('div', { class: 'rx' }, [prescriptionLabel(t), tempoLabel(t)].filter(Boolean).join(' · ')),
-      h('div', { class: 'cue' }, ex.cues)),
-    howTo(e.exerciseId),
+      h('div', { class: 'cue' }, howToFor(e.exerciseId, e.variation).cues)),
+    howTo(e.exerciseId, e.variation),
     skipped
       ? h('div', { class: 'ex-head' }, h('p', { class: 'small muted' }, `Skipped: ${e.reason}`),
         h('button', { class: 'btn small', type: 'button', onclick: () => { e.status = 'pending'; e.reason = ''; app.save(); app.render(); } }, 'Undo skip'))

@@ -6,6 +6,7 @@ import './coach.test.js';
 import './stats.test.js';
 import './draft.test.js';
 import './timer.test.js';
+import './guide.test.js';
 import './blockReview.test.js';
 import './ui.test.js';
 import './pwa.test.js';

@@ -172,8 +172,8 @@ reserve in your last two Session A workouts (3 and 6 Nov). Add a rep: 3 × 9–1
 ## 7. Scheduling
 
 Recommend two strength days from the non-run days. Penalties: day before the long run −10, Friday −4 (recovery
-preferred), day before the quality run −3, two days before the long run −2, Sunday −1, consecutive strength days
-−6. Highest total wins; ties go to Tuesday and Thursday. A goes on the earlier day, B on the later. The setup
+preferred), Sunday −4 (rest, walking or mobility), day before the quality run −3, two days before the long run −2,
+day after the long run −2, consecutive strength days −6. Highest total wins; ties go to Tuesday and Thursday. A goes on the earlier day, B on the later. The setup
 shows the reasons and lets the owner pick other days.
 
 Run protection applies when the long run is 1 or 2 days after the session date; a quality run the next day

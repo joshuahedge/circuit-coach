@@ -173,6 +173,42 @@ describe('coach: holding back', () => {
     expect(sug.reason).toContain('not medical care');
   });
 
+  it('pain on a swapped or skipped exercise still blocks progress and eases off', () => {
+    const s = setupState();
+    addLog(s, 'A', '2026-11-17', { ex: { 'press-up': top() } });
+    addLog(s, 'A', '2026-11-19', { ex: { 'press-up': top() } });
+    const swapped = addLog(s, 'A', '2026-11-20');
+    Object.assign(swapped.exercises[1], { status: 'modified', variation: 'Knee press-up', pain: true });
+    let r = coachReview(s, '2026-11-21');
+    expect(find(r, 'press-up', 'progress')).toBe(undefined);
+    expect(find(r, 'press-up', 'pain').to.sets).toBe(2);
+
+    const k = setupState();
+    addLog(k, 'A', '2026-11-17', { ex: { 'press-up': top() } });
+    addLog(k, 'A', '2026-11-19', { ex: { 'press-up': top() } });
+    const skipped = addLog(k, 'A', '2026-11-20');
+    Object.assign(skipped.exercises[1], { status: 'skipped', reason: 'Pain', sets: [] });
+    r = coachReview(k, '2026-11-21');
+    expect(find(r, 'press-up', 'progress')).toBe(undefined);
+    expect(find(r, 'press-up', 'pain').reason).toContain('because of pain');
+  });
+
+  it('a pain note in a later session blocks progress', () => {
+    const s = setupState();
+    addLog(s, 'A', '2026-11-17', { ex: { 'press-up': top() } });
+    addLog(s, 'A', '2026-11-19', { ex: { 'press-up': top() } });
+    addLog(s, 'A', '2026-11-20', { ex: { 'press-up': { value: 'min', rir: 2 } }, pain: 'sore shoulder' });
+    expect(find(coachReview(s, '2026-11-21'), 'press-up', 'progress')).toBe(undefined);
+  });
+
+  it('old evidence does not count after a break', () => {
+    const s = setupState();
+    addLog(s, 'A', '2026-11-17', { ex: { 'press-up': top() } });
+    addLog(s, 'A', '2026-11-19', { ex: { 'press-up': top() } });
+    expect(Boolean(find(coachReview(s, '2026-12-03'), 'press-up'))).toBe(true);
+    expect(find(coachReview(s, '2026-12-04'), 'press-up')).toBe(undefined);
+  });
+
   it('pain on the first rung drops a set', () => {
     const s = setupState();
     addLog(s, 'A', '2026-11-05', { ex: { 'press-up': { value: 'min', rir: 2, pain: true } } });
@@ -344,8 +380,9 @@ describe('coach: notes', () => {
   it('schedule warnings and dismissing a note', () => {
     const s = setupState({ strengthDays: { tue: 'A', fri: 'B' } });
     const r = coachReview(s, '2026-11-04');
-    const n = r.notes.find((x) => x.kind === 'schedule');
+    const n = r.notes.find((x) => x.kind === 'schedule' && x.level === 'warn');
     expect(n.text).toContain('day before your long run');
+    expect(r.notes.some((x) => x.kind === 'schedule' && x.level === 'info' && x.text.includes('quality run'))).toBe(true);
     const after = dismissNote(s, n, '2026-11-04');
     expect(coachReview(after, '2026-11-04').notes.some((x) => x.key === n.key)).toBe(false);
   });

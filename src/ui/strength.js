@@ -41,7 +41,8 @@ function preview(app, sessionId) {
   };
   drawList();
   const start = () => {
-    app.update((x) => ({ ...x, draft: createDraft(x, sessionId, today, { runProtect, nowIso: app.now().toISOString() }) }));
+    // The date is read at the tap: this screen may have been drawn the evening before.
+    app.update((x) => ({ ...x, draft: createDraft(x, sessionId, app.today(), { runProtect, nowIso: app.now().toISOString() }) }));
   };
   return h('div', null,
     topbar(`Session ${sessionId}`, { sub: session.focus, back: () => app.go('#/log') }),
@@ -200,6 +201,15 @@ function logger(app, sessionId) {
       effortBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
+    const elapsed = elapsedMinutes(d, app.now().getTime());
+    if (d.durationMin === null && elapsed > 90) {
+      // A session left open (or resumed hours later) would log a misleading duration.
+      app.toast(`The timer says ${elapsed} min. Type how long the session really took.`, { ms: 5000 });
+      durationBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const input = durationBox.querySelector('input');
+      if (input) input.focus();
+      return;
+    }
     if (p.done === 0) {
       const ok = await confirmSheet(app, { title: 'No sets ticked', text: 'Save this session with nothing logged?', confirmLabel: 'Save anyway' });
       if (!ok) return;
@@ -224,6 +234,10 @@ function logger(app, sessionId) {
     scaleChips({ min: 1, max: 10, value: d.rpe, label: 'Session effort', onChange: (v) => { d.rpe = v; app.save(); } }));
 
   const durationHint = h('span');
+  const durationBox = field('Duration', numberInput({
+    value: d.durationMin, unit: 'min', placeholder: String(elapsedMinutes(d, app.now().getTime())),
+    onInput: (n) => { d.durationMin = Number.isFinite(n) && n > 0 ? Math.round(n) : null; app.save(); },
+  }), durationHint);
   const view = h('div', null,
     topbar(`Session ${sessionId}`, { sub: h('span', null, timer, ' · ', count), back: () => app.go('#/log') }),
     h('div', { class: 'content' },
@@ -246,10 +260,7 @@ function logger(app, sessionId) {
         field('Any pain or unusual symptoms?', h('textarea', { rows: '2', placeholder: 'Leave blank if none', oninput: (ev) => { d.pain = ev.target.value; app.save(); } }, d.pain),
           SAFETY_NOTE),
         field('Notes', h('textarea', { rows: '2', placeholder: 'Optional', oninput: (ev) => { d.notes = ev.target.value; app.save(); } }, d.notes)),
-        field('Duration', numberInput({
-          value: d.durationMin, unit: 'min', placeholder: String(elapsedMinutes(d, app.now().getTime())),
-          onInput: (n) => { d.durationMin = Number.isFinite(n) && n > 0 ? Math.round(n) : null; app.save(); },
-        }), durationHint)),
+        durationBox),
       h('button', { class: 'btn strength block', type: 'button', onclick: finish }, 'Finish and save'),
       h('div', { style: { height: '8px' } }),
       h('button', { class: 'btn ghost block', type: 'button', onclick: discard }, 'Discard session')));

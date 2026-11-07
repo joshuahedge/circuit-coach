@@ -1,7 +1,18 @@
 // Run log, morning check-in and benchmark test forms.
 import { h, topbar, chips, scaleChips, field, group, numberInput } from './dom.js';
+import { confirmSheet } from './sheet.js';
 import { dayKey, formatShort, isISODate } from '../dates.js';
-import { formatDuration, formatPace, paceSecPerKm, parseDuration } from '../pace.js';
+import { formatDuration, formatPace, paceSecPerKm } from '../pace.js';
+
+// 10K time from separate minute and second boxes (the iPhone number pad has no colon).
+export function tenKFrom(min, sec) {
+  if ((min === null || min === undefined) && (sec === null || sec === undefined)) return { ok: true, value: null };
+  const m = Number.isFinite(min) ? min : 0;
+  const s = Number.isFinite(sec) ? sec : 0;
+  if (Number.isNaN(min) || Number.isNaN(sec) || s > 59 || s < 0) return { ok: false };
+  const total = m * 60 + s;
+  return total >= 15 * 60 && total <= 180 * 60 ? { ok: true, value: total } : { ok: false };
+}
 import { newId } from '../store.js';
 import { SAFETY_NOTE, FRONT_PLANK_NOTE } from '../library.js';
 
@@ -67,7 +78,12 @@ export function runView(app) {
     app.go('#/week');
     app.toast(`Run saved · ${formatPace(paceSecPerKm(run.distanceKm, run.durationSec))}`);
   };
-  const del = existing ? () => {
+  const del = existing ? async () => {
+    const ok = await confirmSheet(app, {
+      title: 'Delete this run?', text: `${formatShort(existing.date)}, ${Number(existing.distanceKm).toFixed(1)} km. This can't be undone.`,
+      confirmLabel: 'Delete', danger: true,
+    });
+    if (!ok) return;
     app.save((s) => ({ ...s, runLogs: s.runLogs.filter((r) => r.id !== existing.id) }));
     app.go('#/log');
     app.toast('Run deleted');
@@ -102,10 +118,14 @@ export function checkinView(app) {
   const existing = byId || app.state.checkins.find((c) => c.date === today) || null;
   const f = existing ? { ...existing } : { id: null, date: today, energy: null, sleep: null, legSoreness: null, pain: '' };
   const err = h('p', { class: 'small', style: { color: 'var(--bad)' }, role: 'alert' });
-  const save = () => {
+  const save = async () => {
     if (!isISODate(f.date)) { err.textContent = 'Check the date.'; return; }
     if (f.energy === null && f.sleep === null && f.legSoreness === null && !f.pain.trim()) { err.textContent = 'Fill in at least one answer.'; return; }
     const sameDay = app.state.checkins.find((c) => c.date === f.date && c.id !== f.id);
+    if (sameDay) {
+      const ok = await confirmSheet(app, { title: `Replace the check-in on ${formatShort(f.date)}?`, text: 'There is already a check-in for that day. Saving replaces its answers.', confirmLabel: 'Replace' });
+      if (!ok) return;
+    }
     const item = { id: f.id || (sameDay ? sameDay.id : newId('chk')), date: f.date, energy: f.energy, sleep: f.sleep, legSoreness: f.legSoreness, pain: f.pain.trim() };
     app.save((s) => ({ ...s, checkins: upsert(s.checkins.filter((c) => !(c.date === item.date && c.id !== item.id)), item) }));
     app.go('#/week');
@@ -131,16 +151,17 @@ export function benchmarkView(app) {
   const existing = app.route.id ? s.benchmarks.find((b) => b.id === app.route.id) : null;
   const last = [...s.benchmarks].filter((b) => !existing || b.id !== existing.id).sort((a, b) => (a.date < b.date ? -1 : 1)).pop() || null;
   const f = existing
-    ? { ...existing, tenK: existing.tenKSec ? formatDuration(existing.tenKSec) : '' }
-    : { id: null, date: today, pressUps: null, plankSec: null, bridgeLeft: null, bridgeRight: null, squats: null, lunges: null, tenK: '', notes: '' };
+    ? { ...existing, tenKMin: existing.tenKSec ? Math.floor(existing.tenKSec / 60) : null, tenKS: existing.tenKSec ? existing.tenKSec % 60 : null }
+    : { id: null, date: today, pressUps: null, plankSec: null, bridgeLeft: null, bridgeRight: null, squats: null, lunges: null, tenKMin: null, tenKS: null, notes: '' };
   const lastHint = (key, unit = '') => (last && last[key] != null ? `Last: ${last[key]}${unit} (${formatShort(last.date)})` : null);
   const num = (key, label, unit = null, hintUnit = '') => field(label,
     numberInput({ value: f[key], unit, label, onInput: (n) => { f[key] = Number.isFinite(n) ? n : null; } }), lastHint(key, hintUnit));
   const err = h('p', { class: 'small', style: { color: 'var(--bad)' }, role: 'alert' });
   const save = () => {
-    const tenKSec = f.tenK.trim() ? parseDuration(f.tenK) : null;
+    const tenK = tenKFrom(f.tenKMin, f.tenKS);
     if (!isISODate(f.date)) { err.textContent = 'Check the date.'; return; }
-    if (f.tenK.trim() && !tenKSec) { err.textContent = 'Write the 10K time as mm:ss or h:mm:ss.'; return; }
+    if (!tenK.ok) { err.textContent = 'Check the 10K time: minutes (15–180) and seconds (0–59).'; return; }
+    const tenKSec = tenK.value;
     const item = {
       id: f.id || newId('bench'), date: f.date, pressUps: f.pressUps, plankSec: f.plankSec, bridgeLeft: f.bridgeLeft,
       bridgeRight: f.bridgeRight, squats: f.squats, lunges: f.lunges, tenKSec, notes: (f.notes || '').trim(),
@@ -166,8 +187,10 @@ export function benchmarkView(app) {
           num('bridgeRight', 'SL bridge right'),
           num('squats', 'Squats'),
           num('lunges', 'Lunges per leg')),
-        field('10K time', h('input', { type: 'text', inputmode: 'numeric', placeholder: 'mm:ss', value: f.tenK, oninput: (e) => { f.tenK = e.target.value; } }),
-          last && last.tenKSec ? `Last: ${formatDuration(last.tenKSec)} (${formatShort(last.date)}). Only when it suits your running; no need to race often.` : 'Only when it suits your running.'),
+        group('10K time', h('div', { class: 'grid2' },
+          numberInput({ value: f.tenKMin, unit: 'min', label: '10K minutes', onInput: (n) => { f.tenKMin = n; } }),
+          numberInput({ value: f.tenKS, unit: 's', label: '10K seconds', onInput: (n) => { f.tenKS = n; } })),
+        last && last.tenKSec ? `Last: ${formatDuration(last.tenKSec)} (${formatShort(last.date)}). Only when it suits your running; no need to race often.` : 'Only when it suits your running.'),
         field('Notes', h('textarea', { rows: '2', placeholder: 'Conditions, how it felt', oninput: (e) => { f.notes = e.target.value; } }, f.notes || ''))),
       err,
       saveBar('Save benchmark', save, null)));

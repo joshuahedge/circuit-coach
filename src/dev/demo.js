@@ -36,7 +36,7 @@ export function demoState(kind) {
     runDays: { mon: 'easy', wed: 'quality', sat: 'long' },
     strengthDays: { tue: 'A', thu: 'B' },
     conventions: { lungeBaselinePerLeg: true, bridgeBaselinePerLeg: true },
-    base: { pressUps: 20, squats: 20, lunges: 10, plankSec: 60, bridge: 5, tenK: '65:00' },
+    base: { pressUps: 20, squats: 20, lunges: 10, plankSec: 60, bridge: 5, tenKMin: 65, tenKSec: 0 },
     profile: { age: null, heightCm: null, weightKg: null },
   }, START);
   for (let w = 0; w < 4; w++) {

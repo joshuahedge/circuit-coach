@@ -258,6 +258,55 @@ describe('ui: coach and plan', () => {
     expect(app.restore('nope').ok).toBe(false);
   });
 
+  it('deleting a run from its edit screen asks first', async () => {
+    const s = setupState();
+    const run = addRun(s, '2026-11-02', { km: 5 });
+    const { app, root } = mount(s, '2026-11-04');
+    app.go(`#/log/run/${run.id}`);
+    click(root, 'Delete');
+    await tick();
+    expect(app.state.runLogs.length).toBe(1);
+    root.querySelector('[data-confirm]').click();
+    await tick();
+    expect(app.state.runLogs.length).toBe(0);
+  });
+
+  it('the block review cannot be dismissed, only acted on', async () => {
+    const { app, root } = mount(setupState(), '2027-01-01');
+    app.go('#/coach');
+    const card = [...root.querySelectorAll('.card')].find((c) => c.textContent.includes('Block 1 finished'));
+    expect(Boolean(btn(card, 'Start next block'))).toBe(true);
+    expect(btn(card, 'Got it')).toBe(undefined);
+    btn(card, 'Start next block').click();
+    await tick();
+    root.querySelector('[data-confirm]').click();
+    await tick();
+    expect(app.state.block.number).toBe(2);
+  });
+
+  it('erase and restore can be undone', () => {
+    const s = setupState();
+    addRun(s, '2026-11-02', { km: 5 });
+    const { app } = mount(s);
+    app.replaceState(emptyState(new Date(2026, 10, 20)));
+    expect(app.state.setupDone).toBe(false);
+    expect(app.undoReplace()).toBe(true);
+    expect(app.state.runLogs.length).toBe(1);
+  });
+
+  it('the 10K is entered as minutes and seconds', () => {
+    const { app, root } = mount(setupState(), '2026-11-30');
+    app.go('#/log/benchmark');
+    type(root.querySelector('[aria-label="10K minutes"]'), '64');
+    type(root.querySelector('[aria-label="10K seconds"]'), '32');
+    click(root, 'Save benchmark');
+    expect(app.state.benchmarks[1].tenKSec).toBe(3872);
+    app.go('#/log/benchmark');
+    type(root.querySelector('[aria-label="10K minutes"]'), '6432');
+    click(root, 'Save benchmark');
+    expect(app.state.benchmarks.length).toBe(2);
+  });
+
   it('unreadable saved data shows the recovery screen', () => {
     const root = document.getElementById('mount');
     const st = memoryStorage();

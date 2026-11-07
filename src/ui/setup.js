@@ -3,7 +3,7 @@ import { h, fill, chips, field, group, numberInput, topbar } from './dom.js';
 import { DAY_KEYS, DAY_NAMES, DAY_SHORT, weekStart } from '../dates.js';
 import { recommendStrengthDays, scheduleWarnings } from '../schedule.js';
 import { createInitialPlan } from '../plan.js';
-import { parseDuration } from '../pace.js';
+import { tenKFrom } from './forms.js';
 import { newId } from '../store.js';
 import { SAFETY_NOTE } from '../library.js';
 
@@ -40,7 +40,7 @@ export function buildSetupState(state, w, today) {
     bridgeRight: perLeg(b.bridge, w.conventions.bridgeBaselinePerLeg),
     squats: Number.isFinite(b.squats) ? b.squats : null,
     lunges: perLeg(b.lunges, w.conventions.lungeBaselinePerLeg),
-    tenKSec: parseDuration(b.tenK),
+    tenKSec: tenKFrom(b.tenKMin, b.tenKSec).value ?? null,
     notes: 'Starting baseline',
   };
   return {
@@ -60,7 +60,7 @@ export function setupView(app) {
     step: 0,
     runDays: { mon: null, wed: null, sat: null },
     conventions: { lungeBaselinePerLeg: null, bridgeBaselinePerLeg: null },
-    base: { pressUps: 20, squats: 20, lunges: 10, plankSec: 60, bridge: 5, tenK: '65:00' },
+    base: { pressUps: 20, squats: 20, lunges: 10, plankSec: 60, bridge: 5, tenKMin: 65, tenKSec: 0 },
     profile: { age: null, heightCm: null, weightKg: null },
     strengthDays: null,
     changeDays: false,
@@ -145,8 +145,10 @@ export function setupView(app) {
             field('Squats', numberInput({ value: b.squats, onInput: (n) => { b.squats = n; } })),
             field('Reverse lunges', numberInput({ value: b.lunges, onInput: (n) => { b.lunges = n; } })),
             field('Plank', numberInput({ value: b.plankSec, unit: 's', onInput: (n) => { b.plankSec = n; } })),
-            field('SL glute bridge', numberInput({ value: b.bridge, onInput: (n) => { b.bridge = n; } })),
-            field('10K time', h('input', { type: 'text', inputmode: 'numeric', value: b.tenK, placeholder: 'mm:ss', oninput: (e) => { b.tenK = e.target.value; } })))),
+            field('SL glute bridge', numberInput({ value: b.bridge, onInput: (n) => { b.bridge = n; } }))),
+          group('10K time', h('div', { class: 'grid2' },
+            numberInput({ value: b.tenKMin, unit: 'min', label: '10K minutes', onInput: (n) => { b.tenKMin = n; } }),
+            numberInput({ value: b.tenKSec, unit: 's', label: '10K seconds', max: 59, onInput: (n) => { b.tenKSec = n; } })))),
         nav(valid)),
     ];
   }

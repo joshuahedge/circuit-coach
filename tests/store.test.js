@@ -1,7 +1,7 @@
 import { describe, it, expect } from './harness.js';
 import {
   STORAGE_KEY, PREV_KEY, SCHEMA_VERSION, APP_ID, emptyState, loadState, saveState, migrate, makeBackup, readBackup,
-  newId, memoryStorage,
+  newId, memoryStorage, stashBeforeReplace, readStash,
 } from '../src/store.js';
 
 const NOW = new Date(2026, 10, 9, 8, 0);
@@ -55,8 +55,8 @@ describe('store', () => {
 
   it('corrupt main falls back to the previous copy', () => {
     const st = memoryStorage();
-    saveState(st, { ...emptyState(NOW), setupDone: true });
-    saveState(st, { ...emptyState(NOW), setupDone: true, createdAt: '2026-11-10' });
+    saveState(st, { ...emptyState(NOW) });
+    saveState(st, { ...emptyState(NOW), createdAt: '2026-11-10' });
     st.setItem(STORAGE_KEY, '{oops');
     const r = loadState(st, NOW);
     expect(r.source).toBe('prev');
@@ -120,6 +120,41 @@ describe('store', () => {
     const newer = readBackup(JSON.stringify({ app: APP_ID, schemaVersion: SCHEMA_VERSION + 1, state: {} }));
     expect(newer.ok).toBe(false);
     expect(newer.error).toContain('newer');
+  });
+
+  it('a full storage drops the previous copy to save the main one', () => {
+    const data = new Map();
+    let failOnce = true;
+    const st = {
+      getItem: (k) => (data.has(k) ? data.get(k) : null),
+      setItem: (k, v) => {
+        if (k === STORAGE_KEY && failOnce && data.has(PREV_KEY)) { failOnce = false; throw new Error('QuotaExceededError'); }
+        data.set(k, v);
+      },
+      removeItem: (k) => data.delete(k),
+    };
+    saveState(st, emptyState(NOW));
+    expect(saveState(st, { ...emptyState(NOW), setupDone: false, createdAt: '2026-11-10' })).toBe(true);
+    expect(data.has(PREV_KEY)).toBe(false);
+    expect(JSON.parse(data.get(STORAGE_KEY)).createdAt).toBe('2026-11-10');
+  });
+
+  it('a set-up state without a plan is rejected on load and restore', () => {
+    const st = memoryStorage();
+    st.setItem(STORAGE_KEY, JSON.stringify({ ...emptyState(NOW), setupDone: true, plans: [] }));
+    expect(loadState(st, NOW).source).toBe('failed');
+    const r = readBackup(JSON.stringify({ app: APP_ID, schemaVersion: 1, state: { setupDone: true } }));
+    expect(r.ok).toBe(false);
+    expect(r.error).toContain('incomplete');
+  });
+
+  it('keeps the replaced data for undo', () => {
+    const st = memoryStorage();
+    saveState(st, { ...emptyState(NOW), createdAt: '2026-01-01' });
+    expect(stashBeforeReplace(st)).toBe(true);
+    saveState(st, emptyState(NOW));
+    saveState(st, emptyState(NOW));
+    expect(readStash(st).createdAt).toBe('2026-01-01');
   });
 
   it('ids are unique', () => {

@@ -161,7 +161,7 @@ export function pickBackupFile(app) {
     app.route = { name: 'week' };
     if (app.useHash) app.win.location.hash = '#/week';
     app.render();
-    app.toast('Backup restored');
+    app.toast('Backup restored.', app.hasStash ? { action: { label: 'Undo', run: () => app.undoReplace() }, ms: 8000 } : undefined);
   });
   doc.body.append(input);
   input.click();
@@ -173,11 +173,11 @@ async function resetAll(app) {
     confirmLabel: 'Erase everything', danger: true,
   });
   if (!ok) return;
-  app.state = emptyState(app.now());
-  app.save();
+  app.replaceState(emptyState(app.now()));
   app.route = { name: 'week' };
   if (app.useHash) app.win.location.hash = '#/week';
   app.render();
+  app.toast('Everything erased.', app.hasStash ? { action: { label: 'Undo', run: () => app.undoReplace() }, ms: 8000 } : undefined);
 }
 
 export function planView(app) {

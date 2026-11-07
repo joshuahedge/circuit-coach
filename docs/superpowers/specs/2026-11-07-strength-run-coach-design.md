@@ -94,8 +94,10 @@ state = {
 
 Scales: energy, sleep 1–5 (5 best); leg soreness 0–5 (0 none); effort (RPE) 1–10; RIR 0–5.
 
-Storage: `localStorage` key `src-state`, with the previous good copy under `src-state-prev`. A load that fails
-to parse falls back to the previous copy, then to a recovery screen that offers restore from file. The app
+Storage: `localStorage` key `src-state`, with the previous good copy under `src-state-prev` (dropped first if
+storage is full). A load that fails to parse, or a set-up state with no plan, falls back to the previous copy,
+then to a recovery screen that offers restore from file. Restore and erase first keep the old data under
+`src-state-replaced` and offer Undo. The app
 asks for persistent storage (`navigator.storage.persist`). The in-progress strength log (`draft`) is saved on
 every tap so an app reload mid-workout loses nothing.
 
@@ -105,7 +107,8 @@ Bottom tab bar: Week, Log, Progress, Coach, Plan. Hash routes (`#/week`, `#/log/
 
 1. **Setup (first run).** Run type for Monday, Wednesday and Saturday; whether the baseline 10 lunges and
    5 glute bridges were per leg; optional age, height, weight; then a recommended pair of strength days with
-   reasons, which the owner confirms or changes. Baselines (press-ups 20, squats 20, lunges 10, plank 60 s,
+   reasons, which the owner confirms or changes. Times are typed as separate minutes and seconds (the iPhone number
+pad has no colon). Baselines (press-ups 20, squats 20, lunges 10, plank 60 s,
    single-leg bridge 5, 10K about 65 min) are pre-filled as the first benchmark entry and editable.
 2. **Week (home).** Monday-to-Sunday calendar of planned runs and strength sessions with done ticks, the
    block week and phase, a Next up card, this week's km and sessions, schedule warnings, a check-in prompt
@@ -129,9 +132,11 @@ Block phases by week of the current block (week 1 = the block's start week): wee
 "Start next block". In every block, weeks 1–2 allow no increases.
 
 An exercise is **ready to progress** when, counting only logs on or after its prescription's `since` date:
-- its last two logs both have every prescribed set (every side) at or above the top of the range, and
+- its last two logs both have every prescribed set (every side) at or above the top of the range, the newer of
+  them no more than 14 days old (no increases from old logs after a break), and
 - reps in reserve averaged 2 or more in each of those logs (if RIR was not logged, session effort 7 or less), and
-- no pain was flagged on it, and neither session carried a pain note, and
+- no pain was flagged on it and no session carried a pain note from the first of those logs onwards, counting
+  logs where the exercise was swapped or skipped (a skip with the reason "Pain" counts as pain), and
 - for leg-heavy exercises, no run in the last 14 days was marked "sore legs affected this run" and no
   check-in in the last 7 days had leg soreness 4 or more, and
 - the last three check-ins in the past 7 days do not average energy 2 or less or sleep 2 or less.

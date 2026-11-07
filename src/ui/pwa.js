@@ -6,15 +6,20 @@ export function registerServiceWorker(app) {
   if (!nav || !('serviceWorker' in nav)) return;
   if (new URLSearchParams(w.location.search).has('nosw')) return;
   const hadController = Boolean(nav.serviceWorker.controller);
+  let askedToReload = false;
   let reloading = false;
   nav.serviceWorker.addEventListener('controllerchange', () => {
-    // First install takes control without a reload; later updates reload once into the new build.
-    if (!hadController || reloading) return;
+    // The first install takes control quietly; an update reloads once into the new build.
+    if (reloading || (!hadController && !askedToReload)) return;
     reloading = true;
     w.location.reload();
   });
-  nav.serviceWorker.register('./sw.js').then((reg) => {
-    const offer = (worker) => app.toast('An update is ready.', { action: { label: 'Reload', run: () => worker.postMessage('skipWaiting') }, ms: 20000 });
+  // Bypass the HTTP cache when checking sw.js and its imports, so a new build is seen at once.
+  nav.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then((reg) => {
+    const offer = (worker) => app.toast('An update is ready.', {
+      action: { label: 'Reload', run: () => { askedToReload = true; worker.postMessage('skipWaiting'); } },
+      ms: 20000,
+    });
     if (reg.waiting && nav.serviceWorker.controller) offer(reg.waiting);
     reg.addEventListener('updatefound', () => {
       const worker = reg.installing;
@@ -24,7 +29,9 @@ export function registerServiceWorker(app) {
       });
     });
     w.document.addEventListener('visibilitychange', () => {
-      if (w.document.visibilityState === 'visible') reg.update().catch(() => {});
+      if (w.document.visibilityState !== 'visible') return;
+      if (reg.waiting && nav.serviceWorker.controller) offer(reg.waiting);
+      reg.update().catch(() => {});
     });
   }).catch(() => {});
 }

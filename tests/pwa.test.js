@@ -19,6 +19,8 @@ describe('pwa', () => {
     }
     const stamp = (await hex(new TextEncoder().encode(lines.join('\n')))).slice(0, 12);
     expect(stamp).toBe(build);
+    const sw = await (await fetch('../sw.js')).text();
+    expect(sw).toContain(`// build ${build}`);
     expect(files.includes('./src/main.js')).toBe(true);
     expect(files.includes('./icons/apple-touch-icon.png')).toBe(true);
   });

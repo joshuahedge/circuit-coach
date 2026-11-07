@@ -94,7 +94,8 @@ function noteCard(app, n) {
       },
     }, 'Start next block'));
   }
-  actions.push(h('button', { class: 'btn', type: 'button', onclick: () => app.update((x) => dismissNote(x, n, today)) }, 'Got it'));
+  // The block review stays until the next block starts: dismissing it would leave the coach in review.
+  if (n.kind !== 'block') actions.push(h('button', { class: 'btn', type: 'button', onclick: () => app.update((x) => dismissNote(x, n, today)) }, 'Got it'));
   return h('div', { class: `card ${n.level === 'warn' ? 'warn' : 'info'}` },
     h('h3', null, n.title),
     h('p', { class: 'small' }, n.text),

@@ -41,6 +41,14 @@ describe('schedule: recommend strength days', () => {
     expect(entries[1][1]).toBe('B');
   });
 
+  it('six or seven run days still give two strength days', () => {
+    const six = recommendStrengthDays({ mon: 'easy', tue: 'easy', wed: 'quality', thu: 'easy', fri: 'easy', sat: 'long' });
+    expect(Object.keys(six.strengthDays).length).toBe(2);
+    const seven = recommendStrengthDays({ mon: 'easy', tue: 'easy', wed: 'quality', thu: 'easy', fri: 'easy', sat: 'long', sun: 'easy' });
+    expect(Object.keys(seven.strengthDays).length).toBe(2);
+    expect(seven.reasons.length).toBe(2);
+  });
+
   it('unknown run types count as other', () => {
     const r = recommendStrengthDays({ mon: null, wed: null, sat: null });
     expect(r.strengthDays).toEqual({ tue: 'A', thu: 'B' });

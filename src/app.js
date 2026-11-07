@@ -1,5 +1,5 @@
 // App controller: holds the state, saves it after every change, routes by URL hash, and draws the current view.
-import { loadState, saveState, emptyState, readBackup } from './store.js';
+import { loadState, saveState, emptyState, readBackup, stashBeforeReplace, readStash } from './store.js';
 import { todayISO } from './dates.js';
 import { coachReview } from './coach.js';
 import { h, ICONS, topbar } from './ui/dom.js';
@@ -99,7 +99,7 @@ export function createApp({ root, storage, now = () => new Date(), useHash = tru
       if (next) app.state = next;
     }
     const ok = saveState(storage, app.state);
-    if (!ok) app.toast("Couldn't save on this phone. Free up some space, then try again.", { level: 'warn', ms: 6000 });
+    if (!ok) app.toast("Couldn't save. Back up your data now from the Plan tab.", { level: 'warn', ms: 8000 });
     return ok;
   };
   app.update = (fn, message) => {
@@ -115,13 +115,28 @@ export function createApp({ root, storage, now = () => new Date(), useHash = tru
     app.route = parseRoute(path);
     app.render();
   };
+  // Replace everything (restore or erase), keeping the old data under its own key for Undo.
+  app.replaceState = (next) => {
+    app.hasStash = stashBeforeReplace(storage);
+    app.state = next;
+    app.loadSource = 'main';
+    app.save();
+  };
   app.restore = (text) => {
     const r = readBackup(text);
     if (!r.ok) return r;
-    app.state = r.state;
+    app.replaceState(r.state);
+    return r;
+  };
+  app.undoReplace = () => {
+    const old = readStash(storage);
+    if (!old) { app.toast('Nothing to undo.'); return false; }
+    app.state = old;
     app.loadSource = 'main';
     app.save();
-    return r;
+    app.render();
+    app.toast('Your previous data is back.');
+    return true;
   };
   app.render = () => {
     for (const fn of app.cleanups.splice(0)) {
@@ -131,6 +146,7 @@ export function createApp({ root, storage, now = () => new Date(), useHash = tru
     const key = routeKey(app.route);
     const changed = key !== app.lastKey;
     app.lastKey = key;
+    app.renderedDay = app.today();
     let view;
     let tabs = true;
     if (!app.state) { view = recoveryView(app); tabs = false; } else if (!app.state.setupDone) { view = setupView(app); tabs = false; } else view = VIEWS[app.route.name](app);
@@ -144,6 +160,10 @@ export function createApp({ root, storage, now = () => new Date(), useHash = tru
     win.addEventListener('hashchange', () => {
       app.route = parseRoute(win.location.hash);
       app.render();
+    });
+    // A home-screen app can sit in the background overnight: redraw when the date has moved on.
+    win.document.addEventListener('visibilitychange', () => {
+      if (win.document.visibilityState === 'visible' && app.renderedDay !== app.today()) app.render();
     });
   }
   app.render();

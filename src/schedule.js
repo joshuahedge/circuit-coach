@@ -39,7 +39,9 @@ function consecutive(a, b) {
 
 export function recommendStrengthDays(runDays) {
   const runKeys = Object.keys(runDays);
-  const candidates = DAY_KEYS.filter((d) => !runKeys.includes(d));
+  let candidates = DAY_KEYS.filter((d) => !runKeys.includes(d));
+  // Six or seven run days leave no free pair: strength then shares a day with a run.
+  if (candidates.length < 2) candidates = [...DAY_KEYS];
   const scored = Object.fromEntries(candidates.map((d) => [d, dayScore(d, runDays)]));
   let best = null;
   for (let i = 0; i < candidates.length; i++) {

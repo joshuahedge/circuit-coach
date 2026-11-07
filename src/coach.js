@@ -74,9 +74,32 @@ function hasPainNote(log) {
   return typeof log.pain === 'string' && log.pain.trim() !== '';
 }
 
-function readiness(ctx, p, entries) {
+// Pain counts whatever happened to the exercise: flagged, or skipped with the reason "Pain".
+function painFlag(entry) {
+  return Boolean(entry.pain) || (entry.status === 'skipped' && entry.reason === 'Pain');
+}
+
+// Every log of this exercise in this session since its prescription began, done, swapped or skipped.
+function anyEntries(state, sessionId, p) {
+  const out = [];
+  for (const log of state.strengthLogs) {
+    if (log.sessionId !== sessionId || log.date < p.since) continue;
+    const entry = (log.exercises || []).find((e) => e.exerciseId === p.exerciseId);
+    if (entry) out.push({ log, entry });
+  }
+  return out.sort((a, b) => byDate(a.log, b.log));
+}
+
+const EVIDENCE_MAX_AGE_DAYS = 14;
+
+function readiness(ctx, p, entries, any) {
   const last2 = entries.filter((e) => e.full).slice(-2);
   if (last2.length < 2) return null;
+  // Evidence must be recent: no increase from old logs after a break.
+  if (daysBetween(last2[1].log.date, ctx.today) > EVIDENCE_MAX_AGE_DAYS) return null;
+  // Any pain on this exercise since the first evidence log (even swapped or skipped) blocks progress.
+  const from = last2[0].log.date;
+  if (any.some(({ log, entry }) => log.date >= from && (painFlag(entry) || hasPainNote(log)))) return null;
   const rirAvgs = [];
   let usedRpe = false;
   for (const { log, entry } of last2) {
@@ -167,12 +190,13 @@ function suggestion(rule, kind, sessionId, p, to, title, reason, evidence) {
 function exerciseCandidates(ctx, sessionId, session, p) {
   const out = [];
   const entries = matchingEntries(ctx.state, sessionId, p);
+  const any = anyEntries(ctx.state, sessionId, p);
   const ex = EXERCISES[p.exerciseId];
   const name = exName(p);
 
-  // Pain flagged on this exercise in its most recent log.
-  const latest = entries[entries.length - 1];
-  if (latest && latest.entry.pain) {
+  // Pain on this exercise in its most recent log, whether it was done, swapped or skipped.
+  const latest = any[any.length - 1];
+  if (latest && painFlag(latest.entry)) {
     const i = ladderIndex(p);
     let to = null;
     let change = '';
@@ -186,7 +210,7 @@ function exerciseCandidates(ctx, sessionId, session, p) {
     }
     if (to) {
       out.push(suggestion('pain', 'reduce', sessionId, p, to, `${name}: ${change}`,
-        `You flagged pain on ${name} on ${formatShort(latest.log.date)}. Ease off: ${change} (${rxText(to)}). ${SAFETY_NOTE}`,
+        `You ${latest.entry.pain ? 'flagged pain on' : 'skipped'} ${name}${latest.entry.pain ? '' : ' because of pain'} on ${formatShort(latest.log.date)}. Ease off: ${change} (${rxText(to)}). ${SAFETY_NOTE}`,
         [latest.log.id]));
     }
   }
@@ -207,7 +231,7 @@ function exerciseCandidates(ctx, sessionId, session, p) {
   }
 
   // Ready to progress.
-  const ready = readiness(ctx, p, entries);
+  const ready = readiness(ctx, p, entries, any);
   if (ready) {
     const step = progressStep(ctx, sessionId, session, p, ready);
     if (step) {
@@ -341,8 +365,8 @@ function notesFor(ctx) {
   }
 
   const sig = JSON.stringify(state.schedule);
-  scheduleWarnings(state.schedule).filter((w) => w.level === 'warn').forEach((w, i) => {
-    notes.push({ key: `schedule:${sig}:${i}`, kind: 'schedule', level: 'warn', title: 'Schedule check', text: w.text });
+  scheduleWarnings(state.schedule).forEach((w, i) => {
+    notes.push({ key: `schedule:${sig}:${i}`, kind: 'schedule', level: w.level, title: 'Schedule check', text: w.text });
   });
 
   return notes;

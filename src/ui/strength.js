@@ -1,5 +1,8 @@
 // Strength session: preview, then the set-by-set logger. Every tap saves the draft.
-import { h, append, ICONS, topbar, stepper, scaleChips, toggle, field, numberInput } from './dom.js';
+import { h, append, ICONS, topbar, stepper, scaleChips, toggle, field, group, numberInput } from './dom.js';
+import { workoutDock, openTimerSettings, timerSettings } from './dock.js';
+import { unlockSound } from './sound.js';
+import { completeSet, upNext, FLOWS } from '../timer.js';
 import { openSheet, confirmSheet } from './sheet.js';
 import { EXERCISES, WARMUPS, COOLDOWN, REST_NOTE, SAFETY_NOTE } from '../library.js';
 import { currentPlan, estimateMinutes, prescriptionLabel, sessionForToday, tempoLabel } from '../plan.js';
@@ -78,9 +81,9 @@ function conflict(app, sessionId) {
         }, 'Discard it'))));
 }
 
-function setRow(app, e, row, onTick) {
+function setRow(app, e, row, ref, isNext) {
   const unitStep = e.target.unit === 'seconds' ? 5 : 1;
-  const el = h('div', { class: `setrow${row.done ? ' is-done' : ''}` });
+  const el = h('div', { class: `setrow${row.done ? ' is-done' : ''}${isNext ? ' is-next' : ''}`, dataset: { ref: `${ref.ei}:${ref.ri}` } });
   const label = h('div', { class: 'lbl' }, `Set ${row.set}`, row.side ? h('small', null, SIDE_LABEL[row.side] || row.side) : null);
   const step = stepper({
     value: row.value, min: 0, max: e.target.unit === 'seconds' ? 600 : 200, step: unitStep,
@@ -94,27 +97,26 @@ function setRow(app, e, row, onTick) {
   rir.addEventListener('change', () => { row.rir = rir.value === '' ? null : Number(rir.value); app.save(); });
   const tick = h('button', { type: 'button', class: 'tick', 'aria-pressed': String(row.done), 'aria-label': `Set ${row.set}${row.side ? ` ${SIDE_LABEL[row.side]}` : ''} done`, html: ICONS.check });
   tick.addEventListener('click', () => {
-    row.done = !row.done;
-    tick.setAttribute('aria-pressed', String(row.done));
-    el.classList.toggle('is-done', row.done);
+    const d = app.state.draft;
+    if (row.done) row.done = false;
+    else {
+      unlockSound(app.win);
+      const cfg = timerSettings(app);
+      completeSet(d, ref, { flow: cfg.flow, rest: cfg.rest, nowMs: app.now().getTime() });
+    }
     app.save();
-    onTick();
+    app.render();
   });
   el.append(label, step, rir, tick);
   return el;
 }
 
-function exerciseCard(app, e, refresh) {
+function exerciseCard(app, e, ei, next) {
   const ex = EXERCISES[e.exerciseId];
   const t = e.target;
-  const card = h('section', { class: 'ex-card', 'aria-label': e.variation });
-  const markDone = () => {
-    const all = e.rows.length > 0 && e.rows.every((r) => r.done);
-    card.classList.toggle('done-all', all && e.status !== 'skipped');
-    refresh();
-  };
+  const card = h('section', { class: `ex-card${next && next.ei === ei ? ' is-current' : ''}`, 'aria-label': e.variation });
   const bySet = {};
-  for (const r of e.rows) (bySet[r.set] = bySet[r.set] || []).push(r);
+  e.rows.forEach((r, ri) => (bySet[r.set] = bySet[r.set] || []).push({ r, ri }));
   const skipped = e.status === 'skipped';
   card.classList.toggle('skipped', skipped);
 
@@ -155,7 +157,7 @@ function exerciseCard(app, e, refresh) {
       : [
         h('div', { class: 'setrow head', 'aria-hidden': 'true', style: { margin: '0 12px' } },
           h('span'), h('span', null, t.unit === 'seconds' ? 'Seconds' : 'Reps'), h('span', null, 'RIR'), h('span', null, 'Done')),
-        Object.keys(bySet).map((n) => h('div', { class: 'setgroup' }, bySet[n].map((row) => setRow(app, e, row, markDone)))),
+        Object.keys(bySet).map((n) => h('div', { class: 'setgroup' }, bySet[n].map(({ r, ri }) => setRow(app, e, r, { ei, ri }, Boolean(next && next.ei === ei && next.ri === ri))))),
       ],
     h('div', { class: 'ex-actions' },
       skipped
@@ -177,95 +179,112 @@ function exerciseCard(app, e, refresh) {
   return card;
 }
 
+function finishSheet(app, sessionId) {
+  const d = app.state.draft;
+  openSheet(app, `Finish Session ${sessionId}`, (close) => {
+    const p = draftProgress(d);
+    const elapsed = elapsedMinutes(d, app.now().getTime());
+    const err = h('p', { class: 'small', style: { color: 'var(--bad)' }, role: 'alert' });
+    const durationInput = numberInput({
+      value: d.durationMin, unit: 'min', placeholder: String(elapsed), label: 'Duration in minutes',
+      onInput: (n) => { d.durationMin = Number.isFinite(n) && n > 0 ? Math.round(n) : null; app.save(); },
+    });
+    const save = async () => {
+      if (d.rpe === null) { err.textContent = 'Pick your session effort first.'; return; }
+      if (d.durationMin === null && elapsed > 90) {
+        // A session left open (or resumed hours later) would log a misleading duration.
+        err.textContent = `The timer says ${elapsed} min. Type how long the session really took.`;
+        const input = durationInput.querySelector ? durationInput.querySelector('input') || durationInput : durationInput;
+        input.focus();
+        return;
+      }
+      if (p.done === 0) {
+        close();
+        const ok = await confirmSheet(app, { title: 'No sets ticked', text: 'Save this session with nothing logged?', confirmLabel: 'Save anyway' });
+        if (!ok) return;
+      }
+      const today = app.today();
+      const before = new Set(coachReview(app.state, today).suggestions.map((x) => x.key));
+      const log = finishDraft(d, { nowMs: app.now().getTime(), id: newId('str') });
+      app.save((x) => ({ ...x, strengthLogs: [...x.strengthLogs, log], draft: null }));
+      const fresh = coachReview(app.state, today).suggestions.filter((x) => !before.has(x.key)).length;
+      app.go('#/week');
+      app.toast(`Session ${sessionId} saved.${fresh ? ` ${fresh} new coach suggestion${fresh > 1 ? 's' : ''}.` : ''}`,
+        fresh ? { action: { label: 'View', run: () => app.go('#/coach') } } : undefined);
+    };
+    const discard = async () => {
+      close();
+      const ok = await confirmSheet(app, { title: 'Discard this session?', text: 'Everything you ticked in it will be lost.', confirmLabel: 'Discard', danger: true });
+      if (ok) { app.save((x) => ({ ...x, draft: null })); app.go('#/log'); }
+    };
+    return h('div', null,
+      h('p', { class: 'muted' }, `${p.done} of ${p.total} sets · ${elapsed} min`),
+      group('Session effort', scaleChips({ min: 1, max: 10, value: d.rpe, label: 'Session effort', lowLabel: 'Very easy', highLabel: 'All-out', onChange: (v) => { d.rpe = v; app.save(); } }),
+        'Aim for challenging but repeatable: about 6–8.'),
+      field('Any pain or unusual symptoms?', h('textarea', { rows: '2', placeholder: 'Leave blank if none', oninput: (ev) => { d.pain = ev.target.value; app.save(); } }, d.pain), SAFETY_NOTE),
+      field('Notes', h('textarea', { rows: '2', placeholder: 'Optional', oninput: (ev) => { d.notes = ev.target.value; app.save(); } }, d.notes)),
+      field('Duration', durationInput, elapsed > 90 ? 'The timer ran long: type the real duration.' : 'Leave blank to use the timer.'),
+      err,
+      h('button', { class: 'btn strength block', type: 'button', onclick: save }, 'Save session'),
+      h('div', { style: { height: '8px' } }),
+      h('button', { class: 'btn ghost block', type: 'button', onclick: discard }, 'Discard session'));
+  });
+}
+
 function logger(app, sessionId) {
   const d = app.state.draft;
   const prot = protectionFor(app, sessionId, d.date);
-  const bar = h('i', { style: { width: '0%' } });
-  const count = h('span', { class: 'small muted' });
-  const refresh = () => {
-    const p = draftProgress(d);
-    bar.style.width = `${p.total ? Math.round((p.done / p.total) * 100) : 0}%`;
-    count.textContent = `${p.done} of ${p.total} sets`;
-  };
+  const cfg = timerSettings(app);
+  const next = upNext(d, cfg.flow);
+  const p = draftProgress(d);
   const timer = h('span', { class: 'timer' });
   const tickTimer = () => { timer.textContent = `${elapsedMinutes(d, app.now().getTime())} min`; };
   tickTimer();
   const interval = setInterval(tickTimer, 20000);
   app.onLeave(() => clearInterval(interval));
   keepAwake(app);
+  const onFinish = () => finishSheet(app, sessionId);
 
-  const finish = async () => {
-    const p = draftProgress(d);
-    if (d.rpe === null) {
-      app.toast('Pick your session effort first.');
-      effortBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      return;
-    }
-    const elapsed = elapsedMinutes(d, app.now().getTime());
-    if (d.durationMin === null && elapsed > 90) {
-      // A session left open (or resumed hours later) would log a misleading duration.
-      app.toast(`The timer says ${elapsed} min. Type how long the session really took.`, { ms: 5000 });
-      durationBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      const input = durationBox.querySelector('input');
-      if (input) input.focus();
-      return;
-    }
-    if (p.done === 0) {
-      const ok = await confirmSheet(app, { title: 'No sets ticked', text: 'Save this session with nothing logged?', confirmLabel: 'Save anyway' });
-      if (!ok) return;
-    }
-    const today = app.today();
-    const before = new Set(coachReview(app.state, today).suggestions.map((x) => x.key));
-    const log = finishDraft(d, { nowMs: app.now().getTime(), id: newId('str') });
-    app.save((x) => ({ ...x, strengthLogs: [...x.strengthLogs, log], draft: null }));
-    const fresh = coachReview(app.state, today).suggestions.filter((x) => !before.has(x.key)).length;
-    app.go('#/week');
-    app.toast(`Session ${sessionId} saved.${fresh ? ` ${fresh} new coach suggestion${fresh > 1 ? 's' : ''}.` : ''}`,
-      fresh ? { action: { label: 'View', run: () => app.go('#/coach') } } : undefined);
-  };
-  const discard = async () => {
-    const ok = await confirmSheet(app, { title: 'Discard this session?', text: 'Everything you ticked in it will be lost.', confirmLabel: 'Discard', danger: true });
-    if (ok) { app.save((x) => ({ ...x, draft: null })); app.go('#/log'); }
-  };
-
-  const effortBox = h('div', { class: 'card' },
-    h('h3', null, 'Session effort'),
-    h('p', { class: 'small muted' }, '1 = very easy, 10 = all-out. Aim for challenging but repeatable: 6–8.'),
-    scaleChips({ min: 1, max: 10, value: d.rpe, label: 'Session effort', onChange: (v) => { d.rpe = v; app.save(); } }));
-
-  const durationHint = h('span');
-  const durationBox = field('Duration', numberInput({
-    value: d.durationMin, unit: 'min', placeholder: String(elapsedMinutes(d, app.now().getTime())),
-    onInput: (n) => { d.durationMin = Number.isFinite(n) && n > 0 ? Math.round(n) : null; app.save(); },
-  }), durationHint);
   const view = h('div', null,
-    topbar(`Session ${sessionId}`, { sub: h('span', null, timer, ' · ', count), back: () => app.go('#/log') }),
+    topbar(`Session ${sessionId}`, {
+      sub: h('span', null, timer, ` · ${p.done} of ${p.total} sets`),
+      back: () => app.go('#/log'),
+      right: h('button', { class: 'btn small', type: 'button', onclick: onFinish }, 'Finish'),
+    }),
     h('div', { class: 'content' },
-      h('div', { class: 'progressbar', style: { margin: '0 0 12px' } }, bar),
+      h('div', { class: 'progressbar', style: { margin: '0 0 12px' } }, h('i', { style: { width: `${p.total ? Math.round((p.done / p.total) * 100) : 0}%` } })),
       prot.applies ? h('div', { class: 'banner run' },
         h('div', { class: 'switch-row' },
           h('span', null, h('b', null, `Long run on ${prot.longDayName}. `), 'Lighter version on.'),
           toggle({ checked: d.runProtect, label: 'Use the lighter version', onChange: (on) => { app.state.draft = setRunProtect(d, app.state, on); app.save(); app.render(); } }))) : null,
       !prot.longRunSoon && prot.qualityTomorrow ? h('div', { class: 'banner run' }, `Quality run on ${prot.qualityDayName}: keep leg sets 2–3 reps short of failure.`) : null,
-      h('div', { class: 'card' },
+      d.energyBefore === null || p.done === 0 ? h('div', { class: 'card' },
         h('h3', null, 'Energy before you start'),
-        scaleChips({ min: 1, max: 5, value: d.energyBefore, label: 'Energy before', lowLabel: 'Drained', highLabel: 'Great', onChange: (v) => { d.energyBefore = v; app.save(); } })),
-      h('details', { class: 'explain' }, h('summary', null, 'Warm-up · 5 min'), h('div', null, WARMUPS[sessionId])),
-      h('p', { class: 'small muted', style: { margin: '0 4px 12px' } },
-        'Tick each set as you finish it. RIR (reps in reserve) is how many more clean reps you had left: optional, but it helps the coach.'),
-      d.exercises.map((e) => exerciseCard(app, e, refresh)),
+        scaleChips({ min: 1, max: 5, value: d.energyBefore, label: 'Energy before', lowLabel: 'Drained', highLabel: 'Great', onChange: (v) => { d.energyBefore = v; app.save(); } })) : null,
+      h('details', { class: 'explain', open: p.done === 0 ? true : null }, h('summary', null, 'Warm-up · 5 min'), h('div', null, WARMUPS[sessionId])),
+      h('div', { class: 'row between', style: { margin: '0 4px 10px' } },
+        h('span', { class: 'small muted' }, `${FLOWS[cfg.flow]} · rest ${cfg.rest.short}/${cfg.rest.long} s`),
+        h('button', { class: 'link', type: 'button', onclick: () => openTimerSettings(app) }, 'Change')),
+      d.exercises.map((e, ei) => exerciseCard(app, e, ei, next)),
       h('details', { class: 'explain' }, h('summary', null, 'Cool-down · 4–5 min'), h('div', null, COOLDOWN)),
-      effortBox,
-      h('div', { class: 'card' },
-        field('Any pain or unusual symptoms?', h('textarea', { rows: '2', placeholder: 'Leave blank if none', oninput: (ev) => { d.pain = ev.target.value; app.save(); } }, d.pain),
-          SAFETY_NOTE),
-        field('Notes', h('textarea', { rows: '2', placeholder: 'Optional', oninput: (ev) => { d.notes = ev.target.value; app.save(); } }, d.notes)),
-        durationBox),
-      h('button', { class: 'btn strength block', type: 'button', onclick: finish }, 'Finish and save'),
-      h('div', { style: { height: '8px' } }),
-      h('button', { class: 'btn ghost block', type: 'button', onclick: discard }, 'Discard session')));
-  durationHint.textContent = 'Leave blank to use the timer.';
-  refresh();
+      h('button', { class: 'btn strength block', type: 'button', onclick: onFinish }, 'Finish session')),
+    workoutDock(app, d, { onFinish }));
+
+  // Keep the set the dock is offering in view, without fighting the user's own scrolling.
+  if (next && app.lastNextRef !== `${next.ei}:${next.ri}`) {
+    app.lastNextRef = `${next.ei}:${next.ri}`;
+    const w = app.win;
+    if (w.requestAnimationFrame) {
+      w.requestAnimationFrame(() => {
+        const row = view.querySelector(`[data-ref="${next.ei}:${next.ri}"]`);
+        const dock = view.querySelector('.dock');
+        if (!row || !row.isConnected) return;
+        const r = row.getBoundingClientRect();
+        const bottomLimit = w.innerHeight - (dock ? dock.getBoundingClientRect().height : 0) - 12;
+        if (r.top < 70 || r.bottom > bottomLimit) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    }
+  }
   return view;
 }
 

@@ -110,17 +110,62 @@ describe('ui: logging', () => {
     const more = btn(root, 'More: Set 1 reps');
     more.click();
     expect(app.state.draft.exercises[1].rows[0].value).toBe(9);
-    click(root, 'Finish and save');
+    expect(root.querySelector('.dock').textContent).toContain('Every set done');
+    expect(root.querySelector('.tabbar')).toBe(null);
+    click(root, 'Finish');
+    click(root, 'Save session');
     expect(app.state.strengthLogs.length).toBe(0);
+    expect(root.querySelector('.sheet').textContent).toContain('Pick your session effort first');
     const effort = [...root.querySelectorAll('[aria-label="Session effort"] .chip')].find((b) => b.textContent === '7');
     effort.click();
-    click(root, 'Finish and save');
+    click(root, 'Save session');
     expect(app.state.draft).toBe(null);
     expect(app.state.strengthLogs.length).toBe(1);
     const log = app.state.strengthLogs[0];
     expect(log.rpe).toBe(7);
     expect(log.exercises.every((e) => e.status === 'done')).toBe(true);
     expect(log.exercises[1].sets[0].value).toBe(9);
+  });
+
+  it('the dock walks through sets, rests and reps in reserve', () => {
+    const { app, root } = mount(setupState(), '2026-11-03');
+    app.go('#/log/strength/A');
+    click(root, 'Start Session A');
+    const dock = () => root.querySelector('.dock');
+    expect(dock().textContent).toContain('Reverse lunge');
+    expect(dock().textContent).toContain('Set 1 of 3 · Left');
+    click(dock(), 'Done');
+    expect(app.state.draft.rest).toBe(null);
+    expect(dock().textContent).toContain('Set 1 of 3 · Right');
+    click(dock(), 'Done');
+    expect(app.state.draft.rest.total).toBe(45);
+    expect(dock().textContent).toContain('Rest');
+    expect(dock().textContent).toContain('Next: Press-up · Set 1 of 3');
+    [...dock().querySelectorAll('.chip')].find((b) => b.textContent === '2').click();
+    expect(app.state.draft.exercises[0].rows.slice(0, 2).map((r) => r.rir)).toEqual([2, 2]);
+    click(dock(), '15 seconds more');
+    expect(app.state.draft.rest.total).toBe(60);
+    click(dock(), 'Skip rest');
+    expect(app.state.draft.rest).toBe(null);
+    expect(dock().textContent).toContain('Press-up');
+    expect(root.querySelector('.setrow.is-next').dataset.ref).toBe('1:0');
+  });
+
+  it('order and rest settings change the flow', () => {
+    const { app, root } = mount(setupState(), '2026-11-03');
+    app.go('#/log/strength/A');
+    click(root, 'Start Session A');
+    click(root, 'Order and rest settings');
+    click(root, 'One exercise at a time');
+    click(root, '90 s');
+    click(root.querySelector('.sheet'), 'Done');
+    expect(app.state.settings.flow).toBe('sets');
+    expect(app.state.settings.restLong).toBe(90);
+    const dock = () => root.querySelector('.dock');
+    click(dock(), 'Done');
+    click(dock(), 'Done');
+    expect(app.state.draft.rest.total).toBe(90);
+    expect(dock().textContent).toContain('Next: Reverse lunge · Set 2 of 3');
   });
 
   it('a draft survives a reload', () => {

@@ -39,7 +39,7 @@ export function emptyState(now = new Date()) {
     benchmarks: [],
     decisions: [],
     draft: null,
-    settings: { lastBackupAt: null, installHintDismissed: false },
+    settings: { lastBackupAt: null, installHintDismissed: false, flow: 'circuit', restShort: 45, restLong: 75, sound: true },
   };
 }
 

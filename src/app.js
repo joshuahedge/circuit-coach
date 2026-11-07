@@ -150,9 +150,11 @@ export function createApp({ root, storage, now = () => new Date(), useHash = tru
     let view;
     let tabs = true;
     if (!app.state) { view = recoveryView(app); tabs = false; } else if (!app.state.setupDone) { view = setupView(app); tabs = false; } else view = VIEWS[app.route.name](app);
-    app.frame.className = `app${tabs ? '' : ' no-tabs'}`;
+    // During a workout the tab bar gives way to the Now dock: one task, nothing else to tap by mistake.
+    const focus = tabs && app.route.name === 'strength' && app.state.draft && app.state.draft.sessionId === app.route.sessionId;
+    app.frame.className = `app${tabs && !focus ? '' : ' no-tabs'}${focus ? ' focus' : ''}`;
     app.frame.replaceChildren(view);
-    if (tabs) app.frame.append(tabbar(app));
+    if (tabs && !focus) app.frame.append(tabbar(app));
     if (changed && typeof win.scrollTo === 'function' && useHash) win.scrollTo(0, 0);
   };
 

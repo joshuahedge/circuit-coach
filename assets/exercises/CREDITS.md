@@ -14,7 +14,15 @@ the image keep the same licence. That applies to the images below, not to the ap
 | pike-push-up.png | Pike push-up | wger.de exercise database, AI-generated drawing (exercise 454, "Pike Push Ups") | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) | [original image](https://wger.de/media/exercise-images/454/447f3c17-405f-46e0-b138-65c2a8caaab0.png) | resized, greyscale |
 | sl-calf-raise.jpg | Single-leg calf raise | Bessieeboo | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) | [Eccentric Exercise](https://commons.wikimedia.org/wiki/File:Eccentric_Exercise.png) | converted to JPEG |
 | side-plank.jpg | Side plank | Jaykayfit | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) | [Side Plank](https://commons.wikimedia.org/wiki/File:Side_Plank.jpg) | resized, re-encoded |
+| split-squat.jpg | Split squat (a swap) | Yashjoshi2102 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) | [Sakshi Malik fitness (lunge)](https://commons.wikimedia.org/wiki/File:Sakshi_Malik_fitness_(lunge).jpg) | cropped, resized, re-encoded |
+| side-leg-raise.jpg | Side-lying leg raise (a swap) | Klewis425 | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) | [Side Leg Raise](https://commons.wikimedia.org/wiki/File:Side_Leg_Raise.jpg) | cropped, resized, re-encoded |
+| calf-raise-two-legs.jpg | Double-leg slow calf raise, calf raise hold (swaps) | BruceBlaus | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) | [Exercise Heel Raise Two Legs](https://commons.wikimedia.org/wiki/File:Exercise_Heel_Raise_Two_Legs.png) | resized, converted to JPEG |
 | reverse-lunge.svg, dead-bug.svg, prone-ytw.svg | Reverse lunge, dead bug, prone Y–T–W raises | Drawn for this app | Same licence as the app | n/a | n/a |
 
 No openly licensed image was found that showed a bodyweight reverse lunge on flat ground, a dead bug, or
 prone Y–T–W raises, so those three are simple line drawings made for this app.
+
+Harder versions and swaps: only exact matches were added (the three rows above marked as swaps). A search
+on 7 Nov 2026 found no openly licensed bodyweight picture of a knee or archer press-up, skater or Cossack
+squat, reverse lunge with knee drive, kickstand RDL, heel taps, prone swimmers or the other versions, so
+those show the base exercise's picture with a note that the steps are for the version.

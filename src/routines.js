@@ -1,6 +1,6 @@
-// How-tos for every harder version and swap, and the guided routines (warm-ups, cool-down, mobility).
+// How-tos for every harder version and swap, and the guided routines (warm-ups, cool-down).
 // Kept apart from library.js so the exercise list stays readable. No burpees or mountain climbers.
-import { EXERCISES } from './library.js';
+import { EXERCISES, BYSA3, BYSA4 } from './library.js';
 
 // Steps for each version or swap that is not an exercise's own base movement. `image` is set in
 // VARIATION_IMAGES (below) where an openly licensed picture exists.
@@ -178,6 +178,26 @@ export function routineMinutes(steps) {
   return Math.round(steps.reduce((s, x) => s + x.sec, 0) / 60);
 }
 
-// Pictures for versions and swaps, from openly licensed sources. Same shape as the exercise images in
-// library.js.
-export const VARIATION_IMAGES = {};
+// Pictures for versions and swaps, from openly licensed sources (credits in assets/exercises/CREDITS.md).
+// Same shape as the exercise images in library.js. Versions without one show the base exercise's picture,
+// labelled as such: only exact matches were taken.
+const TWO_LEG_CALF = {
+  ...BYSA4, credit: 'BruceBlaus', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Exercise_Heel_Raise_Two_Legs.png', changes: 'resized',
+  srcs: [{ src: 'assets/exercises/calf-raise-two-legs.jpg', w: 560, h: 420 }],
+  alt: 'Two-leg heel raise, seen from behind: standing flat, then up on the balls of both feet.',
+};
+
+export const VARIATION_IMAGES = {
+  'Split squat': {
+    ...BYSA4, credit: 'Yashjoshi2102', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Sakshi_Malik_fitness_(lunge).jpg', changes: 'cropped, resized',
+    srcs: [{ src: 'assets/exercises/split-squat.jpg', w: 600, h: 629 }],
+    alt: 'Split squat: hands on hips, one foot forward, back knee lowered close to the floor.',
+  },
+  'Side-lying leg raise': {
+    ...BYSA3, credit: 'Klewis425', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Side_Leg_Raise.jpg', changes: 'cropped, resized',
+    srcs: [{ src: 'assets/exercises/side-leg-raise.jpg', w: 670, h: 295 }],
+    alt: 'Side-lying leg raise: lying on one side, head on the lower arm, top leg lifted straight.',
+  },
+  'Double-leg slow calf raise': TWO_LEG_CALF,
+  'Calf raise hold': TWO_LEG_CALF,
+};

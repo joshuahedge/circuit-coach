@@ -222,8 +222,8 @@ export const EXERCISES = {
 // Pictures for each exercise's How to. Downloaded once from their sources, resized, and stored in the app
 // so they work offline. Licences were checked on each file's own page; full details in
 // assets/exercises/CREDITS.md. Drawings marked "own" were made for this app.
-const BYSA3 = { license: 'CC BY-SA 3.0', licenseUrl: 'https://creativecommons.org/licenses/by-sa/3.0/' };
-const BYSA4 = { license: 'CC BY-SA 4.0', licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0/' };
+export const BYSA3 = { license: 'CC BY-SA 3.0', licenseUrl: 'https://creativecommons.org/licenses/by-sa/3.0/' };
+export const BYSA4 = { license: 'CC BY-SA 4.0', licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0/' };
 const OWN = { credit: 'drawing made for this app', own: true };
 const IMAGES = {
   'reverse-lunge': { ...OWN, srcs: [{ src: 'assets/exercises/reverse-lunge.svg', w: 600, h: 300 }], alt: 'Stand tall, then step one foot back and lower until both knees bend to about 90 degrees.' },

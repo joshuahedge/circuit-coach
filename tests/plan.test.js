@@ -1,5 +1,7 @@
 import { describe, it, expect } from './harness.js';
 import { EXERCISES, isBannedName, WARMUPS, COOLDOWN } from '../src/library.js';
+import { VARIATION_IMAGES } from '../src/routines.js';
+import { exerciseFigure } from '../src/ui/figure.js';
 import {
   defaultSessions, createInitialPlan, currentPlan, prescriptionLabel, tempoLabel, sideCount, estimateMinutes,
   withPrescription, revertPlan, ladderIndex, samePrescription,
@@ -37,6 +39,24 @@ describe('library', () => {
         expect(im.credit.length).toBeGreaterThan(2);
       }
     }
+  });
+
+  it('version pictures are credited and belong to a real version or swap', () => {
+    const versions = new Set(Object.values(EXERCISES).flatMap((ex) => [...ex.ladder, ...ex.swaps].map((x) => x.name)));
+    expect(Object.keys(VARIATION_IMAGES).length).toBeGreaterThan(2);
+    for (const [name, im] of Object.entries(VARIATION_IMAGES)) {
+      expect(versions.has(name)).toBe(true);
+      expect(im.alt.length).toBeGreaterThan(20);
+      expect(/^CC BY(-SA)? [0-9.]+$/.test(im.license)).toBe(true);
+      expect(im.sourceUrl.startsWith('https://commons.wikimedia.org/')).toBe(true);
+      for (const x of im.srcs) expect(/^assets\/exercises\/[a-z0-9-]+\.(svg|jpg|png)$/.test(x.src)).toBe(true);
+    }
+    const own = exerciseFigure('reverse-lunge', 'Split squat');
+    expect(own.querySelector('img').getAttribute('src')).toBe('assets/exercises/split-squat.jpg');
+    expect(own.textContent.includes('Picture shows')).toBe(false);
+    const borrowed = exerciseFigure('reverse-lunge', 'Reverse lunge to knee drive');
+    expect(borrowed.querySelector('img').getAttribute('src')).toBe('assets/exercises/reverse-lunge.svg');
+    expect(borrowed.textContent).toContain('Picture shows the reverse lunge');
   });
 
   it('every exercise has how-to steps, a ladder and swaps', () => {

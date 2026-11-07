@@ -26,17 +26,20 @@ there will not show up in the installed app.
 
 - **Week:** what's next (Start goes straight into the session), this week's sessions, a three-tap
   morning check-in until noon, schedule warnings.
-- **Workout:** the panel at the bottom leads you through the circuit: a 5-minute warm-up timer, then
-  each set with big + / − and Done, one set of each exercise per round. Done starts the rest timer (45 s
+- **Workout:** the panel at the bottom leads you through the circuit: a guided 5-minute warm-up (one move
+  at a time, each with its own countdown; Pause, Skip move or End warm-up), then each set with big + / − and
+  Done, one set of each exercise per round. Done starts the rest timer (45 s
   between exercises, 75 s between rounds by default; change it under Rest), and during the rest you can
   say how many reps you had left. Timed exercises like the side plank have a hold timer (3-2-1, then it
-  counts up and logs the seconds). Each exercise has a How to with a picture. Finish asks for effort,
-  pain and notes, then shows how the session compared with last time. Beeps play only while the app is
+  counts up and logs the seconds). Every exercise, harder version and swap has its own How to steps,
+  with a picture. When every set is done, a guided 4-minute cool-down is offered before Finish. Finish asks
+  for effort, pain and notes, then shows how the session compared with last time. Beeps play only while the app is
   open (the screen stays on); the iPhone silent switch mutes them unless you turn on "Beep on silent".
 - **Log:** a session, a morning check-in, or benchmark tests. Tap any recent entry to see, edit or delete
   it (Undo for 6 seconds; sessions can be edited for 48 hours).
 - **Progress:** consistency, each exercise over time, session effort, benchmarks.
-- **Coach:** suggested changes with the numbers behind them, Accept / Edit / Reject (with Undo), notes,
+- **Coach:** suggested changes with the numbers behind them, Accept / Edit / Reject (with Undo), where
+  each exercise stands (how close it is to its next step, or why it is waiting), notes,
   plan history (go back to any version), and **Copy summary for Claude** for a second opinion in a chat.
 - **Plan:** the exercises with how-to steps, pictures and swaps, your training days, profile, backup and
   restore, and image credits.

@@ -21,6 +21,15 @@
 >   version); session average under 30 min with every session done → one more set where it fits 40 min. Under
 >   75 % of planned sessions done → no changes, a note to repeat the plan. Starting applies the kept changes as
 >   one plan version ("Block N plan: …") and starts the block (Undo in the toast).
+> - Refinements (7 Nov, evening; the owner picked these from a list and declined a mobility routine, spoken
+>   cues and monthly measurements): every harder version and swap has its own how-to steps and cues
+>   (src/routines.js, `howToFor`), with its own picture where an openly licensed one exists, otherwise the base
+>   exercise's picture labelled as such; the Coach screen lists where each exercise stands (`exerciseStanding`
+>   in src/coach.js: 0 of 2 / 1 of 2 clean sessions, ready but waiting for week 3 / the review / its turn, or
+>   on hold for pain, soreness or low recovery, or a suggestion to answer); the warm-up is guided move by move
+>   (6 moves, 5 min, per session) and a guided 4-minute cool-down is offered when every set is done
+>   (src/guide.js, timestamp-based so a locked phone catches up); a new icon (a ring of five stations with a
+>   rising chevron) replaces the old one with the running dot.
 
 Approved in chat on 7 Nov 2026. Source: a private training brief (kept out of this public repo). This spec
 records what the app must do and the decisions made with the owner. Personal body measurements are never

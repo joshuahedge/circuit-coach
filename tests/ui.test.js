@@ -306,10 +306,16 @@ describe('ui: coach and plan', () => {
     app.go('#/coach');
     expect(root.textContent).toContain('Press-up: add a rep');
     expect(root.querySelector('.tabbar .badge').textContent).toBe('1');
+    expect(root.textContent).toContain('What the coach saw');
     click(root, 'Accept');
     expect(app.state.plans.length).toBe(2);
     expect(currentPlan(app.state).sessions.A.exercises[1].max).toBe(13);
-    expect(root.textContent.includes('Press-up: add a rep (')).toBe(false);
+    const ghost = root.querySelector('.card.ghost');
+    expect(ghost.textContent).toContain('Accepted');
+    click(ghost, 'Undo');
+    expect(app.state.plans.length).toBe(1);
+    expect(app.state.decisions.length).toBe(0);
+    expect(root.textContent).toContain('Press-up: add a rep');
   });
 
   it('reject keeps the plan', () => {

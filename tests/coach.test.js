@@ -1,5 +1,5 @@
 import { describe, it, expect } from './harness.js';
-import { coachReview, acceptSuggestion, rejectSuggestion, dismissNote, startNextBlock } from '../src/coach.js';
+import { coachReview, acceptSuggestion, rejectSuggestion, dismissNote, startNextBlock, canUndoDecision, undoDecision } from '../src/coach.js';
 import { currentPlan, withPrescription } from '../src/plan.js';
 import { setupState, addLog, addRun, addCheckin } from './fixtures.js';
 
@@ -316,6 +316,37 @@ describe('coach: limits and decisions', () => {
     expect(currentPlan(next).sessions.A.exercises[1].min).toBe(10);
     expect(currentPlan(next).reason).toContain('edited by you');
     expect(next.decisions[0].status).toBe('edited');
+  });
+
+  it('every suggestion shows the numbers behind it', () => {
+    const s = setupState();
+    addLog(s, 'A', '2026-11-17', { ex: { 'press-up': top() } });
+    addLog(s, 'A', '2026-11-19', { ex: { 'press-up': top(3) } });
+    const sug = find(coachReview(s, '2026-11-20'), 'press-up');
+    expect(sug.details).toEqual(['17 Nov: 12 12 12 (RIR 2)', '19 Nov: 12 12 12 (RIR 3)']);
+    const lunge = setupState();
+    addLog(lunge, 'A', '2026-11-03', { ex: { 'reverse-lunge': { value: 7 } } });
+    addLog(lunge, 'A', '2026-11-05', { ex: { 'reverse-lunge': { value: 7 } } });
+    expect(find(coachReview(lunge, '2026-11-06'), 'reverse-lunge', 'missed').details[0]).toBe('3 Nov: L 7 7 7 · R 7 7 7 (RIR 1)');
+  });
+
+  it('a decision can be undone while its plan version is the latest', () => {
+    const all = { 'press-up': top(), 'dead-bug': top() };
+    let s = setupState();
+    addLog(s, 'A', '2026-11-17', { ex: all });
+    addLog(s, 'A', '2026-11-19', { ex: all });
+    const [a, b] = coachReview(s, '2026-11-20').suggestions;
+    s = acceptSuggestion(s, a, '2026-11-20');
+    expect(canUndoDecision(s, a.key)).toBe(true);
+    s = acceptSuggestion(s, b, '2026-11-20');
+    expect(canUndoDecision(s, a.key)).toBe(false);
+    s = undoDecision(s, b.key);
+    expect(s.plans.length).toBe(2);
+    expect(s.decisions.length).toBe(1);
+    expect(coachReview(s, '2026-11-20').suggestions.some((x) => x.key === b.key)).toBe(true);
+    s = rejectSuggestion(s, b, '2026-11-20');
+    s = undoDecision(s, b.key);
+    expect(s.decisions.length).toBe(1);
   });
 
   it('rejecting hides it until there is new evidence', () => {

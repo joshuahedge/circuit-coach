@@ -179,11 +179,28 @@ function rxText(p) {
   return t ? `${prescriptionLabel(p)} (${t})` : prescriptionLabel(p);
 }
 
-function suggestion(rule, kind, sessionId, p, to, title, reason, evidence) {
+// The numbers behind a suggestion, one line per log, so a mistyped set is visible before Accept.
+function valuesText(entry) {
+  if (entry.status === 'skipped') return `skipped${entry.reason ? ` (${entry.reason.toLowerCase()})` : ''}`;
+  const unit = entry.target && entry.target.unit === 'seconds' ? ' s' : '';
+  const sides = [...new Set(entry.sets.map((x) => x.side))];
+  const text = sides.map((side) => {
+    const vals = entry.sets.filter((x) => x.side === side).map((x) => x.value).join(' ');
+    return side ? `${side} ${vals}` : vals;
+  }).join(' · ');
+  const rirs = entryRirs(entry);
+  return `${text}${unit}${rirs.length ? ` (RIR ${Math.min(...rirs)}${Math.max(...rirs) !== Math.min(...rirs) ? `–${Math.max(...rirs)}` : ''})` : ''}${entry.pain ? ', pain' : ''}`;
+}
+
+function entryLines(items) {
+  return items.map(({ log, entry }) => `${formatShort(log.date)}: ${valuesText(entry)}`);
+}
+
+function suggestion(rule, kind, sessionId, p, to, title, reason, evidence, details = []) {
   return {
     key: `${rule}:${sessionId}:${rule === 'run-affected' || rule === 'effort' ? '' : p.exerciseId}:${evidence.join(',')}`,
     rule, kind, priority: PRIORITY[rule], sessionId, exerciseId: p.exerciseId, exerciseName: exName(p),
-    from: p, to, title, reason, evidence,
+    from: p, to, title, reason, evidence, details,
   };
 }
 
@@ -211,7 +228,7 @@ function exerciseCandidates(ctx, sessionId, session, p) {
     if (to) {
       out.push(suggestion('pain', 'reduce', sessionId, p, to, `${name}: ${change}`,
         `You ${latest.entry.pain ? 'flagged pain on' : 'skipped'} ${name}${latest.entry.pain ? '' : ' because of pain'} on ${formatShort(latest.log.date)}. Ease off: ${change} (${rxText(to)}). ${SAFETY_NOTE}`,
-        [latest.log.id]));
+        [latest.log.id], entryLines([latest])));
     }
   }
 
@@ -226,7 +243,7 @@ function exerciseCandidates(ctx, sessionId, session, p) {
       const to = { ...p, min, max };
       out.push(suggestion('missed', 'reduce', sessionId, p, to, `${name}: lower the target`,
         `You fell short of ${p.min}${p.unit === 'seconds' ? ' s' : ''} on ${name} in ${missed.length} of your last ${last3.length} Session ${sessionId} workouts (${dateList(missed.map((e) => e.log))}). Lower the target to ${rxText(to)} so every set stays clean.`,
-        missed.map((e) => e.log.id)));
+        missed.map((e) => e.log.id), entryLines(last3)));
     }
   }
 
@@ -240,7 +257,7 @@ function exerciseCandidates(ctx, sessionId, session, p) {
       const changeText = step.change.charAt(0).toUpperCase() + step.change.slice(1);
       out.push(suggestion('progress', 'progress', sessionId, p, step.to, `${name}: ${step.change}`,
         `On ${name} you hit ${top}, every set, ${effort} in your last two Session ${sessionId} workouts (${dateList(ready.last2.map((e) => e.log))}). ${changeText}: ${rxText(step.to)}.`,
-        ready.last2.map((e) => e.log.id)));
+        ready.last2.map((e) => e.log.id), entryLines(ready.last2)));
     }
   }
   return out;
@@ -259,7 +276,7 @@ function sessionCandidates(ctx, sessionId, session) {
       const to = { ...target, sets: target.sets - 1 };
       out.push(suggestion('effort', 'reduce', sessionId, target, to, `${exName(target)}: drop one set`,
         `Your last two Session ${sessionId} workouts (${dateList(last2)}) were rated ${last2[0].rpe}/10 and ${last2[1].rpe}/10. Take one set off ${exName(target)} (${rxText(to)}) so the session stays challenging but repeatable.`,
-        last2.map((l) => l.id)));
+        last2.map((l) => l.id), last2.map((l) => `${formatShort(l.date)}: effort ${l.rpe}/10${l.durationMin ? `, ${l.durationMin} min` : ''}`)));
     }
   }
 
@@ -275,7 +292,7 @@ function sessionCandidates(ctx, sessionId, session) {
     const to = { ...target, sets: target.sets - 1 };
     out.push(suggestion('run-affected', 'reduce', sessionId, target, to, `${exName(target)}: drop one set`,
       `You said sore legs affected your ${RUN_TYPE_LABEL[run.runType] ? RUN_TYPE_LABEL[run.runType].toLowerCase() + ' ' : ''}run on ${formatShort(run.date)}, after Session ${sessionId} on ${formatShort(before.date)}. Take one set off ${exName(target)} (${rxText(to)}) so strength supports your running.`,
-      [run.id, before.id]));
+      [run.id, before.id], [`${formatShort(before.date)}: Session ${sessionId}`, `${formatShort(run.date)}: ${Number(run.distanceKm).toFixed(1)} km run, sore legs affected it`]));
     break;
   }
   return out;
@@ -421,6 +438,20 @@ export function acceptSuggestion(state, s, today, editedTo = null) {
     plans: [...state.plans, next],
     decisions: [...state.decisions, decision(s, editedTo ? 'edited' : 'accepted', today, next.version)],
   };
+}
+
+// Undo a decision: only while its plan version is still the latest (otherwise use Plan history).
+export function canUndoDecision(state, key) {
+  const d = state.decisions.find((x) => x.key === key);
+  if (!d) return false;
+  return !d.planVersion || state.plans[state.plans.length - 1].version === d.planVersion;
+}
+
+export function undoDecision(state, key) {
+  if (!canUndoDecision(state, key)) return state;
+  const d = state.decisions.find((x) => x.key === key);
+  const plans = d.planVersion ? state.plans.slice(0, -1) : state.plans;
+  return { ...state, plans, decisions: state.decisions.filter((x) => x !== d) };
 }
 
 export function rejectSuggestion(state, s, today) {

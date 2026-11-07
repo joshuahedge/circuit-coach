@@ -1,7 +1,7 @@
 // Coach: suggestions with Accept / Edit / Reject, notes, block review, plan history, summary for Claude.
 import { h, fill, topbar, stepper, field } from './dom.js';
 import { openSheet, confirmSheet } from './sheet.js';
-import { coachReview, acceptSuggestion, rejectSuggestion, dismissNote, startNextBlock } from '../coach.js';
+import { coachReview, acceptSuggestion, rejectSuggestion, dismissNote, startNextBlock, canUndoDecision, undoDecision } from '../coach.js';
 import { currentPlan, prescriptionLabel, revertPlan, tempoLabel } from '../plan.js';
 import { EXERCISES } from '../library.js';
 import { buildSummary } from '../summary.js';
@@ -59,26 +59,74 @@ export function openRxEditor(app, { title, p, onSave, saveLabel = 'Save' }) {
   });
 }
 
+const GHOST_MS = 8000;
+
+// After Accept or Reject the card stays where it was for a few seconds as "Accepted · Undo", so the next
+// card never slides under a finger mid-tap.
+function decide(app, s, status, fn, message) {
+  app.coachGhosts = app.coachGhosts || new Map();
+  app.coachGhosts.set(s.key, { s, status, until: Date.now() + GHOST_MS });
+  app.update(fn);
+  const undo = () => {
+    app.coachGhosts.delete(s.key);
+    app.update((x) => undoDecision(x, s.key), 'Undone');
+  };
+  app.toast(message, canUndoDecision(app.state, s.key) ? { action: { label: 'Undo', run: undo }, ms: GHOST_MS } : undefined);
+}
+
+function ghostCard(app, g) {
+  const can = canUndoDecision(app.state, g.s.key);
+  return h('div', { class: 'card ghost' },
+    h('div', { class: `kind ${g.status === 'rejected' ? 'reduce' : 'progress'}` }, g.status === 'rejected' ? 'Rejected' : g.status === 'edited' ? 'Accepted with your changes' : 'Accepted'),
+    h('h3', null, g.s.title),
+    can ? h('button', {
+      class: 'btn small', type: 'button', 'aria-label': `Undo: ${g.s.title}`,
+      onclick: () => { app.coachGhosts.delete(g.s.key); app.update((x) => undoDecision(x, g.s.key), 'Undone'); },
+    }, 'Undo') : h('p', { class: 'tiny muted' }, 'To change it back, use Plan history below.'));
+}
+
 function suggestionCard(app, s) {
   const today = app.today();
-  const accept = () => app.update((x) => acceptSuggestion(x, s, today), `Plan updated: ${s.title}`);
-  const reject = () => app.update((x) => rejectSuggestion(x, s, today), 'Kept your plan as it is');
+  const accept = () => decide(app, s, 'accepted', (x) => acceptSuggestion(x, s, today), `Plan updated: ${s.title}`);
+  const reject = () => decide(app, s, 'rejected', (x) => rejectSuggestion(x, s, today), 'Kept your plan as it is');
   const edit = () => openRxEditor(app, {
     title: `Edit: ${s.exerciseName}`, p: s.to, saveLabel: 'Accept with changes',
-    onSave: (p) => app.update((x) => acceptSuggestion(x, s, today, p), 'Plan updated with your changes'),
+    onSave: (p) => decide(app, s, 'edited', (x) => acceptSuggestion(x, s, today, p), 'Plan updated with your changes'),
   });
   return h('div', { class: 'card' },
     h('div', { class: `kind ${s.kind}` }, s.kind === 'progress' ? `Progress · Session ${s.sessionId}` : `Ease off · Session ${s.sessionId}`),
     h('h3', null, s.title),
     h('p', { class: 'small' }, s.reason),
+    s.details && s.details.length ? h('div', { class: 'evidence' },
+      h('div', { class: 'tiny muted strong' }, 'What the coach saw'),
+      s.details.map((line) => h('div', { class: 'tiny num' }, line))) : null,
     h('div', { class: 'diff' },
       h('span', { class: 'from' }, `${prescriptionLabel(s.from)}${tempoLabel(s.from) ? ` · ${tempoLabel(s.from)}` : ''}`),
       h('span', { 'aria-hidden': 'true' }, '→'),
       h('span', { class: 'to' }, `${s.to.variation !== s.from.variation ? `${s.to.variation}: ` : ''}${prescriptionLabel(s.to)}${tempoLabel(s.to) ? ` · ${tempoLabel(s.to)}` : ''}`)),
     h('div', { class: 'btn-row' },
-      h('button', { class: 'btn primary', type: 'button', onclick: accept }, 'Accept'),
-      h('button', { class: 'btn', type: 'button', onclick: edit }, 'Edit'),
-      h('button', { class: 'btn', type: 'button', onclick: reject }, 'Reject')));
+      h('button', { class: 'btn primary', type: 'button', 'aria-label': `Accept: ${s.title}`, onclick: accept }, 'Accept'),
+      h('button', { class: 'btn', type: 'button', 'aria-label': `Edit: ${s.title}`, onclick: edit }, 'Edit'),
+      h('button', { class: 'btn', type: 'button', 'aria-label': `Reject: ${s.title}`, onclick: reject }, 'Reject')));
+}
+
+// Suggestions in a stable order: decided ones keep their place (as ghosts) until they expire.
+function suggestionList(app, suggestions) {
+  const ghosts = app.coachGhosts || (app.coachGhosts = new Map());
+  const nowMs = Date.now();
+  for (const [k, g] of ghosts) {
+    if (g.until <= nowMs || !app.state.decisions.some((d) => d.key === k)) ghosts.delete(k);
+  }
+  const current = new Map(suggestions.map((x) => [x.key, x]));
+  const order = (app.coachOrder || []).filter((k) => current.has(k) || ghosts.has(k));
+  for (const x of suggestions) if (!order.includes(x.key)) order.push(x.key);
+  app.coachOrder = order;
+  if (ghosts.size) {
+    const next = Math.min(...[...ghosts.values()].map((g) => g.until));
+    const timer = setTimeout(() => { if (app.route.name === 'coach') app.render(); }, Math.max(50, next - nowMs + 50));
+    app.onLeave(() => clearTimeout(timer));
+  }
+  return order.map((k) => (current.has(k) ? suggestionCard(app, current.get(k)) : ghostCard(app, ghosts.get(k))));
 }
 
 function noteCard(app, n) {
@@ -141,8 +189,8 @@ export function coachView(app) {
     topbar('Coach', { sub: `Block ${b.number} · Week ${b.week} · ${b.label}` }),
     h('div', { class: 'content' },
       h('div', { class: 'card accent-strength' }, h('h3', null, b.label), h('p', { class: 'small' }, b.text)),
-      r.suggestions.length ? h('div', { class: 'section-title' }, 'Suggested changes') : null,
-      r.suggestions.map((s) => suggestionCard(app, s)),
+      r.suggestions.length || (app.coachGhosts && app.coachGhosts.size) ? h('div', { class: 'section-title' }, 'Suggested changes') : null,
+      suggestionList(app, r.suggestions),
       r.notes.length ? h('div', { class: 'section-title' }, 'Notes') : null,
       r.notes.map((n) => noteCard(app, n)),
       !r.suggestions.length && !r.notes.length ? h('div', { class: 'card info' },

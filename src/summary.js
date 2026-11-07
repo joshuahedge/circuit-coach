@@ -7,7 +7,7 @@ import { formatDuration, formatPace, paceSecPerKm } from './pace.js';
 
 const byDate = (a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
 
-function setsText(e) {
+export function setsText(e) {
   if (e.status === 'skipped') return `skipped${e.reason ? ` (${e.reason})` : ''}`;
   const unit = e.target && e.target.unit === 'seconds' ? ' s' : '';
   const sides = [...new Set(e.sets.map((s) => s.side))];

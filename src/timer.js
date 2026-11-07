@@ -1,12 +1,13 @@
 // Workout flow and timers, as pure functions over the draft. Times are epoch milliseconds so a timer stays
 // right when the phone locks or the app sits in the background.
 //
+import { startGuide } from './guide.js';
+
 // Sessions run as circuits: one set of each exercise per round (the brief's "rest between rounds"). Both
 // sides of a set go back to back, with no rest between them.
 export const REST_DEFAULTS = { short: 45, long: 75 };
 export const HOLD_LEAD_IN_SEC = 3;
 export const SWITCH_SIDES_SEC = 5;
-export const WARMUP_SEC = 5 * 60;
 
 function active(draft) {
   return draft.exercises.map((e, ei) => ({ e, ei })).filter(({ e }) => e.status !== 'skipped');
@@ -69,7 +70,7 @@ export function completeSet(draft, ref, { rest = REST_DEFAULTS, nowMs }) {
   draft.lastDone = ref;
   draft.hold = null;
   draft.restEndedAt = null;
-  if (!draft.warmup) draft.warmup = { done: true };
+  if (!draft.warmup || !draft.warmup.done) draft.warmup = { done: true };
   const r = restAfter(draft, ref, rest);
   draft.rest = r ? { endsAt: nowMs + r.seconds * 1000, total: r.seconds, kind: r.kind } : null;
   return draft.rest;
@@ -88,8 +89,17 @@ export function endRest(draft, natural = false) {
   draft.rest = null;
 }
 
-export function startWarmup(draft, nowMs) {
-  draft.warmup = { endsAt: nowMs + WARMUP_SEC * 1000 };
+// Guided warm-up and cool-down: each holds a guide (see guide.js) while running, then { done: true }.
+export function startWarmup(draft, nowMs, steps) {
+  draft.warmup = { guide: startGuide(steps, nowMs) };
+}
+
+export function startCooldown(draft, nowMs, steps) {
+  draft.cooldown = { guide: startGuide(steps, nowMs) };
+}
+
+export function endCooldown(draft) {
+  draft.cooldown = { done: true };
 }
 
 export function endWarmup(draft) {

@@ -1,11 +1,13 @@
-// The "Now" dock at the bottom of a workout: warm-up, then the next set with big controls, the rest
-// countdown, the hold timer for timed exercises, and Finish when every set is done. Thumb reach, one tap a set.
+// The "Now" dock at the bottom of a workout: a guided warm-up, then the next set with big controls, the rest
+// countdown, the hold timer for timed exercises, then a guided cool-down and Finish. Thumb reach, one tap a set.
 import { h, append, ICONS, stepper, chips, group, toggle } from './dom.js';
 import { openSheet } from './sheet.js';
 import {
   upNext, rowAt, completeSet, adjustRest, endRest, remainingSec, startHold, holdElapsed, stopHold, cancelHold,
-  clock, setLabel, startWarmup, endWarmup, REST_DEFAULTS, HOLD_LEAD_IN_SEC,
+  clock, setLabel, startWarmup, endWarmup, startCooldown, endCooldown, REST_DEFAULTS, HOLD_LEAD_IN_SEC,
 } from '../timer.js';
+import { advanceGuide, skipStep, pauseGuide, resumeGuide, guideRemaining, guideDone } from '../guide.js';
+import { WARMUP_STEPS, COOLDOWN_STEPS, routineMinutes } from '../routines.js';
 import { sideText, tempoLabel } from '../plan.js';
 import { draftProgress } from '../draft.js';
 import { beep, unlockSound, applyAudioSession } from './sound.js';
@@ -60,7 +62,7 @@ function targetText(t) {
   return `${range}${unit}${sideText(t)}${tempo ? ` · ${tempo}` : ''}`;
 }
 
-export function workoutDock(app, d, { onFinish, warmupText = '' }) {
+export function workoutDock(app, d, { onFinish }) {
   const cfg = timerSettings(app);
   const now = () => app.now().getTime();
   const el = h('div', { class: 'dock', role: 'region', 'aria-label': 'Next set and timer' });
@@ -83,30 +85,79 @@ export function workoutDock(app, d, { onFinish, warmupText = '' }) {
     return ref ? `Next: ${d.exercises[ref.ei].variation} · ${setLabel(d, ref)}` : 'Next: finish the session';
   };
 
-  function warmupMode() {
-    const running = d.warmup && d.warmup.endsAt;
-    if (!running) {
-      put(
-        h('div', { class: 'dock-head' },
-          h('div', { class: 'grow' }, h('div', { class: 'dock-title' }, 'Warm-up · 5 min'), h('div', { class: 'dock-sub clamp' }, warmupText)),
-          gear),
-        h('div', { class: 'dock-row' },
-          h('button', { class: 'btn dock-btn', type: 'button', onclick: () => { endWarmup(d); app.save(); app.render(); } }, 'Skip'),
-          h('button', { class: 'btn primary dock-btn grow', type: 'button', onclick: () => { unlock(); startWarmup(d, now()); app.save(); app.render(); } }, 'Start warm-up timer')));
-      return;
-    }
+  // A guided routine (warm-up or cool-down): the move, its cue and countdown, then what comes next.
+  function guidedMode(g, { what, after, endLabel, onEnd }) {
+    const title = h('div', { class: 'dock-title' });
+    const cue = h('div', { class: 'dock-sub clamp' });
     const clockEl = h('div', { class: 'dock-clock' });
+    const bar = h('i');
+    const next = h('div', { class: 'dock-next' });
+    const pauseBtn = h('button', { class: 'btn dock-btn', type: 'button' });
+    let shown = -1;
+    const paint = () => {
+      const step = g.steps[g.idx];
+      if (shown !== g.idx) {
+        shown = g.idx;
+        title.textContent = step.name;
+        cue.textContent = step.cue;
+        const following = g.steps[g.idx + 1];
+        next.textContent = `Move ${g.idx + 1} of ${g.steps.length} · Next: ${following ? following.name : after}`;
+      }
+      const rem = guideRemaining(g, now());
+      clockEl.textContent = clock(rem);
+      bar.style.width = `${Math.min(100, (rem / step.sec) * 100)}%`;
+      pauseBtn.textContent = g.pausedLeft === null ? 'Pause' : 'Resume';
+    };
+    pauseBtn.onclick = () => {
+      if (g.pausedLeft === null) pauseGuide(g, now()); else { unlock(); resumeGuide(g, now()); }
+      app.save();
+      paint();
+    };
+    const skip = () => {
+      skipStep(g, now());
+      lastCount = null;
+      app.save();
+      if (guideDone(g)) onEnd(false); else paint();
+    };
     put(
       h('div', { class: 'dock-head' },
-        h('div', { class: 'grow' }, h('div', { class: 'dock-title' }, 'Warm-up'), h('div', { class: 'dock-sub clamp' }, warmupText)),
+        h('div', { class: 'grow' }, h('div', { class: 'dock-kicker' }, what), title, cue),
         clockEl),
+      h('div', { class: 'progressbar dock-bar' }, bar),
       h('div', { class: 'dock-row' },
-        h('button', { class: 'btn primary dock-btn grow', type: 'button', onclick: () => { endWarmup(d); app.save(); app.render(); } }, 'Warmed up: first set')));
+        pauseBtn,
+        h('button', { class: 'btn dock-btn', type: 'button', onclick: skip }, 'Skip move'),
+        h('button', { class: 'btn primary dock-btn grow', type: 'button', onclick: () => onEnd(false) }, endLabel)),
+      next);
     tick = () => {
-      const rem = remainingSec(d.warmup.endsAt, now());
-      clockEl.textContent = clock(rem);
-      if (rem === 0) { beep(app, 'go'); endWarmup(d); app.save(); app.dockFlash = true; app.render(); }
+      const moved = advanceGuide(g, now());
+      if (guideDone(g)) { beep(app, 'go'); onEnd(true); return; }
+      if (moved) { beep(app, 'go'); lastCount = null; app.save(); }
+      const rem = guideRemaining(g, now());
+      if (g.pausedLeft === null && rem > 0 && rem <= 3 && lastCount !== rem) { lastCount = rem; beep(app, 'count'); }
+      paint();
     };
+  }
+
+  // natural: the routine ran to the end (flash the dock for what comes next); otherwise ended early.
+  const finishWarmup = (natural) => { endWarmup(d); app.save(); if (natural) app.dockFlash = true; app.render(); };
+  const finishCooldown = (natural) => { endCooldown(d); app.save(); if (natural) app.dockFlash = true; app.render(); };
+
+  function warmupMode() {
+    if (d.warmup && d.warmup.guide) {
+      guidedMode(d.warmup.guide, { what: 'Warm-up', after: 'first set', endLabel: 'End warm-up', onEnd: finishWarmup });
+      return;
+    }
+    const steps = WARMUP_STEPS[d.sessionId] || WARMUP_STEPS.A;
+    put(
+      h('div', { class: 'dock-head' },
+        h('div', { class: 'grow' },
+          h('div', { class: 'dock-title' }, `Warm-up · ${routineMinutes(steps)} min`),
+          h('div', { class: 'dock-sub clamp' }, `${steps.length} moves, timed one by one: ${steps.map((x) => x.name.toLowerCase()).join(', ')}.`)),
+        gear),
+      h('div', { class: 'dock-row' },
+        h('button', { class: 'btn dock-btn', type: 'button', onclick: () => finishWarmup(false) }, 'Skip'),
+        h('button', { class: 'btn primary dock-btn grow', type: 'button', onclick: () => { unlock(); startWarmup(d, now(), steps); app.save(); app.render(); } }, 'Start warm-up')));
   }
 
   function setMode(ref) {
@@ -230,20 +281,39 @@ export function workoutDock(app, d, { onFinish, warmupText = '' }) {
   }
 
   function doneMode() {
+    const cd = d.cooldown;
+    if (cd && cd.guide) {
+      guidedMode(cd.guide, { what: 'Cool-down', after: 'save the session', endLabel: 'End cool-down', onEnd: finishCooldown });
+      return;
+    }
+    const offer = !d.editingId && !(cd && cd.done);
     put(
       h('div', { class: 'dock-head' },
-        h('div', { class: 'grow' }, h('div', { class: 'dock-title' }, 'Every set done'), h('div', { class: 'dock-sub' }, 'Cool down, then save the session.')),
+        h('div', { class: 'grow' },
+          h('div', { class: 'dock-title' }, cd && cd.done ? 'Cooled down' : 'Every set done'),
+          h('div', { class: 'dock-sub' }, offer ? `Cool down for ${routineMinutes(COOLDOWN_STEPS)} min, then save the session.` : 'Save the session.')),
         gear),
-      h('div', { class: 'dock-row' }, h('button', { class: 'btn strength dock-btn grow', type: 'button', onclick: onFinish }, 'Finish session')));
+      h('div', { class: 'dock-row' },
+        offer ? h('button', { class: 'btn dock-btn grow', type: 'button', onclick: () => { unlock(); startCooldown(d, now(), COOLDOWN_STEPS); app.save(); app.render(); } }, 'Cool down') : null,
+        h('button', { class: 'btn strength dock-btn grow', type: 'button', onclick: onFinish }, 'Finish session')));
   }
 
   const fresh = draftProgress(d).done === 0 && !d.editingId;
+  // Settle a routine that ran out while the phone was locked, or a warm-up that a ticked set overtook.
+  if (d.warmup && !d.warmup.done) {
+    const g = d.warmup.guide;
+    if (g) advanceGuide(g, now());
+    if (!fresh || !g || guideDone(g)) { endWarmup(d); app.save(); }
+  }
+  if (d.cooldown && d.cooldown.guide) {
+    advanceGuide(d.cooldown.guide, now());
+    if (guideDone(d.cooldown.guide)) { endCooldown(d); app.save(); }
+  }
   if (d.hold) holdMode();
   else if (d.rest && remainingSec(d.rest.endsAt, now()) > 0) restMode();
-  else if (fresh && (!d.warmup || (d.warmup.endsAt && remainingSec(d.warmup.endsAt, now()) > 0))) warmupMode();
+  else if (fresh && !(d.warmup && d.warmup.done)) warmupMode();
   else {
     if (d.rest) { endRest(d, true); app.save(); }
-    if (fresh && d.warmup && d.warmup.endsAt) { endWarmup(d); app.save(); }
     const ref = upNext(d);
     if (ref) setMode(ref); else doneMode();
   }

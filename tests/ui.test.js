@@ -146,10 +146,20 @@ describe('ui: logging', () => {
     app.go('#/log/strength/A');
     click(root, 'Start Session A');
     const dock = () => root.querySelector('.dock');
-    expect(dock().textContent).toContain('Warm-up');
-    click(dock(), 'Start warm-up timer');
-    expect(app.state.draft.warmup.endsAt).toBeGreaterThan(0);
-    click(dock(), 'Warmed up: first set');
+    expect(dock().textContent).toContain('Warm-up · 5 min');
+    click(dock(), 'Start warm-up');
+    expect(app.state.draft.warmup.guide.idx).toBe(0);
+    expect(dock().querySelector('.dock-title').textContent).toBe('March or jog on the spot');
+    expect(dock().textContent).toContain('Move 1 of 6 · Next: Bodyweight squats');
+    click(dock(), 'Skip move');
+    expect(dock().querySelector('.dock-title').textContent).toBe('Bodyweight squats');
+    expect(dock().textContent).toContain('Move 2 of 6 · Next: Alternating reverse lunges');
+    click(dock(), 'Pause');
+    expect(app.state.draft.warmup.guide.pausedLeft).toBeGreaterThan(0);
+    click(dock(), 'Resume');
+    expect(app.state.draft.warmup.guide.pausedLeft).toBe(null);
+    click(dock(), 'End warm-up');
+    expect(app.state.draft.warmup.done).toBe(true);
     expect(dock().textContent).toContain('Reverse lunge');
     expect(dock().textContent).toContain('8–10 reps per leg · 2 s down');
     expect(dock().textContent.includes('null') || dock().textContent.includes('undefined')).toBe(false);
@@ -169,6 +179,40 @@ describe('ui: logging', () => {
     expect(app.state.draft.rest).toBe(null);
     expect(dock().textContent).toContain('Press-up');
     expect(root.querySelector('.setrow.is-next').dataset.ref).toBe('1:0');
+  });
+
+  it('the warm-up moves on by itself, catches up after a lock, and a cool-down comes before Finish', () => {
+    const root = document.getElementById('mount');
+    root.textContent = '';
+    const st = memoryStorage();
+    saveState(st, setupState());
+    let t = new Date(2026, 10, 3, 9, 0).getTime();
+    const app = createApp({ root, storage: st, now: () => new Date(t), useHash: false, win: window });
+    app.installed = true;
+    app.render();
+    app.go('#/log/strength/A');
+    click(root, 'Start Session A');
+    const dock = () => root.querySelector('.dock');
+    const title = () => dock().querySelector('.dock-title').textContent;
+    click(dock(), 'Start warm-up');
+    t += 50 * 1000;
+    app.render();
+    expect(title()).toBe('Bodyweight squats');
+    t += 10 * 60 * 1000;
+    app.render();
+    expect(app.state.draft.warmup.done).toBe(true);
+    expect(title()).toBe('Reverse lunge');
+    [...root.querySelectorAll('.tick')].forEach((b) => b.click());
+    expect(title()).toBe('Every set done');
+    click(dock(), 'Cool down');
+    expect(title()).toBe('Hip-flexor stretch, left');
+    expect(dock().textContent).toContain('Move 1 of 6 · Next: Hip-flexor stretch, right');
+    t += 5 * 60 * 1000;
+    app.render();
+    expect(title()).toBe('Cooled down');
+    expect(btn(dock(), 'Cool down')).toBe(undefined);
+    click(dock(), 'Finish session');
+    expect(root.querySelector('.sheet').textContent).toContain('Save session');
   });
 
   it('rest settings change the rest times', () => {

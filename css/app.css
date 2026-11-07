@@ -316,6 +316,7 @@ textarea { min-height: 80px; resize: vertical; }
 .dock-head .grow { flex: 1; min-width: 0; }
 .dock-title { font-weight: 750; font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dock-sub { font-size: .85rem; color: var(--muted); }
+.dock-kicker { font-size: .72rem; font-weight: 750; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
 .dock-row { display: flex; gap: 8px; align-items: center; }
 .dock-row .stepper { flex: none; }
 .dock-row .stepper button { width: 52px; height: 56px; font-size: 1.6rem; }

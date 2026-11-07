@@ -276,9 +276,9 @@ function logger(app, sessionId) {
         h('span', { class: 'small muted' }, `Circuit · rest ${cfg.rest.short} s between exercises, ${cfg.rest.long} s between rounds`),
         h('button', { class: 'link', type: 'button', onclick: () => openTimerSettings(app) }, 'Change')),
       d.exercises.map((e, ei) => exerciseCard(app, e, ei, next)),
-      h('details', { class: 'explain' }, h('summary', null, 'Cool-down · 4–5 min'), h('div', null, COOLDOWN)),
+      h('details', { class: 'explain' }, h('summary', null, 'Cool-down · 4 min'), h('div', null, COOLDOWN)),
       h('button', { class: 'btn strength block', type: 'button', onclick: onFinish }, 'Finish session')),
-    workoutDock(app, d, { onFinish, warmupText: WARMUPS[sessionId] }));
+    workoutDock(app, d, { onFinish }));
 
   // Keep the set the dock is offering in view, without fighting the user's own scrolling.
   if (next && app.lastNextRef !== `${next.ei}:${next.ri}`) {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from './harness.js';
 import { startGuide, advanceGuide, skipStep, pauseGuide, resumeGuide, guideRemaining, guideDone, guideTotalLeft } from '../src/guide.js';
-import { VARIATIONS, howToFor, WARMUP_STEPS, COOLDOWN_STEPS, MOBILITY_STEPS, routineMinutes } from '../src/routines.js';
+import { VARIATIONS, howToFor, WARMUP_STEPS, COOLDOWN_STEPS, routineMinutes } from '../src/routines.js';
 import { EXERCISES, isBannedName } from '../src/library.js';
 
 const T0 = 1_800_000_000_000;
@@ -59,8 +59,7 @@ describe('routines content', () => {
     expect(routineMinutes(WARMUP_STEPS.A)).toBe(5);
     expect(routineMinutes(WARMUP_STEPS.B)).toBe(5);
     expect(routineMinutes(COOLDOWN_STEPS)).toBe(4);
-    expect(routineMinutes(MOBILITY_STEPS)).toBe(10);
-    const all = [...WARMUP_STEPS.A, ...WARMUP_STEPS.B, ...COOLDOWN_STEPS, ...MOBILITY_STEPS].map((s) => `${s.name} ${s.cue}`);
+    const all = [...WARMUP_STEPS.A, ...WARMUP_STEPS.B, ...COOLDOWN_STEPS].map((s) => `${s.name} ${s.cue}`);
     const text = [...all, ...Object.entries(VARIATIONS).flatMap(([k, v]) => [k, ...v.howTo, v.cues])];
     expect(text.filter(isBannedName)).toEqual([]);
     expect(text.some((t) => /\brun(ning|ner|s)?\b/i.test(t))).toBe(false);

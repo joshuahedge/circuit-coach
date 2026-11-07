@@ -174,27 +174,10 @@ export const COOLDOWN_STEPS = [
   { name: 'Thoracic rotations', sec: 60, cue: 'On your side, open the top arm; switch halfway.' },
 ];
 
-export const MOBILITY_STEPS = [
-  { name: 'Cat-cow', sec: 60, cue: 'On hands and knees, round then arch your back with your breath.' },
-  { name: "Child's pose", sec: 45, cue: 'Knees wide, sit back, arms long.' },
-  { name: '90/90 hip switches', sec: 60, cue: 'Sit tall, rotate both knees side to side.' },
-  { name: 'Open-book rotation, left side', sec: 45, cue: 'Lie on your left side, knees bent, open the top arm across.' },
-  { name: 'Open-book rotation, right side', sec: 45, cue: 'Lie on your right side, knees bent, open the top arm across.' },
-  { name: 'Kneeling hip-flexor stretch, left', sec: 45, cue: 'Left knee down, tuck the hips under, stand tall.' },
-  { name: 'Kneeling hip-flexor stretch, right', sec: 45, cue: 'Right knee down, tuck the hips under, stand tall.' },
-  { name: 'Deep squat hold', sec: 45, cue: 'Heels down, elbows nudging the knees out. Hold a door frame if needed.' },
-  { name: 'Lying hamstring stretch, left', sec: 45, cue: 'On your back, left leg up, hands behind the thigh.' },
-  { name: 'Lying hamstring stretch, right', sec: 45, cue: 'On your back, right leg up, hands behind the thigh.' },
-  { name: 'Calf stretch, left', sec: 30, cue: 'Hands on a wall, left heel down.' },
-  { name: 'Calf stretch, right', sec: 30, cue: 'Hands on a wall, right heel down.' },
-  { name: 'Downward dog', sec: 45, cue: 'Hips high, press the heels gently towards the floor.' },
-];
-
 export function routineMinutes(steps) {
   return Math.round(steps.reduce((s, x) => s + x.sec, 0) / 60);
 }
 
-// Pictures for versions and swaps (and mobility moves), filled from openly licensed sources. Same shape as
-// the exercise images in library.js.
+// Pictures for versions and swaps, from openly licensed sources. Same shape as the exercise images in
+// library.js.
 export const VARIATION_IMAGES = {};
-export const MOBILITY_IMAGES = {};

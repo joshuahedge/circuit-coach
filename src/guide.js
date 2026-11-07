@@ -1,4 +1,4 @@
-// A guided routine (warm-up, cool-down, mobility): one move at a time, each with its own countdown.
+// A guided routine (warm-up, cool-down): one move at a time, each with its own countdown.
 // Times are epoch milliseconds, so a routine stays right when the phone locks. Functions mutate `g`.
 
 export function startGuide(steps, nowMs) {

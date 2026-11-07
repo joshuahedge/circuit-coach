@@ -1,5 +1,7 @@
 // Week (home): next workout, this week's calendar, totals, prompts.
-import { h, ICONS, topbar } from './dom.js';
+import { h, ICONS, topbar, scaleChips } from './dom.js';
+import { startSession } from './strength.js';
+import { newId } from '../store.js';
 import { addDays, daysBetween, formatDay, formatShort, DAY_SHORT } from '../dates.js';
 import { blockInfo, runProtection, scheduleWarnings, weekModel, SCHEDULE_RUN_LABEL, RUN_TYPE_LABEL } from '../schedule.js';
 import { currentPlan, estimateMinutes } from '../plan.js';
@@ -9,6 +11,7 @@ import { backupNow } from './plan.js';
 
 export function startRun(app, runType) {
   app.pendingRunType = runType || null;
+  app.runForm = null;
   app.go('#/log/run');
 }
 
@@ -71,14 +74,44 @@ function nextCard(app, m) {
       h('p', { class: 'muted small' }, `${session.focus} · about ${estimateMinutes(session)} min`),
       prot.longRunSoon ? h('p', { class: 'small' }, `Lighter legs: long run on ${prot.longDayName}.`) : null,
       !prot.longRunSoon && prot.qualityTomorrow ? h('p', { class: 'small' }, `Quality run tomorrow: keep leg sets 2–3 reps short of failure.`) : null,
-      h('button', { class: 'btn strength block', type: 'button', onclick: () => app.go(`#/log/strength/${item.sessionId}`) },
-        iso === today ? `Start Session ${item.sessionId}` : `Open Session ${item.sessionId}`));
+      iso === today
+        ? h('button', { class: 'btn strength block', type: 'button', onclick: () => startSession(app, item.sessionId) }, `Start Session ${item.sessionId}`)
+        : h('button', { class: 'btn block', type: 'button', onclick: () => app.go(`#/log/strength/${item.sessionId}`) }, `Open Session ${item.sessionId}`));
   }
   return h('div', { class: 'card next-card accent-run' },
     h('div', { class: 'when' }, `Next up · ${when}`),
     h('div', { class: 'what' }, SCHEDULE_RUN_LABEL[item.runType] || 'Run'),
     item.runType === 'long' ? h('p', { class: 'muted small' }, 'Protected: no hard leg work the day before.') : null,
     h('button', { class: 'btn run block', type: 'button', onclick: () => startRun(app, item.runType) }, 'Log run'));
+}
+
+// "This morning": three taps, saved on the third, with Undo. Shown every day until noon.
+function quickCheckin(app) {
+  const s = app.state;
+  const today = app.today();
+  if (s.checkins.some((c) => c.date === today) || app.now().getHours() >= 12) return null;
+  if (!app.quickCheck || app.quickCheck.date !== today) app.quickCheck = { date: today, energy: null, sleep: null, legSoreness: null };
+  const q = app.quickCheck;
+  const answer = (k) => (v) => {
+    q[k] = v;
+    if (q.energy === null || q.sleep === null || q.legSoreness === null) return;
+    const item = { id: newId('chk'), date: today, energy: q.energy, sleep: q.sleep, legSoreness: q.legSoreness, pain: '' };
+    app.quickCheck = null;
+    app.update((x) => ({ ...x, checkins: [...x.checkins, item] }));
+    app.toast(item.legSoreness >= 4 ? 'Check-in saved. Leg increases pause while soreness is high.' : 'Check-in saved.', {
+      ms: 6000, action: { label: 'Undo', run: () => app.update((x) => ({ ...x, checkins: x.checkins.filter((c) => c.id !== item.id) })) },
+    });
+  };
+  const row = (label, k, min, max, low, high, bad) => h('div', { class: 'quick-row' },
+    h('span', { class: 'strong small' }, label),
+    scaleChips({ min, max, value: q[k], label, lowLabel: low, highLabel: high, bad, onChange: answer(k) }));
+  return h('div', { class: 'card' },
+    h('div', { class: 'row between' }, h('h3', null, 'This morning'),
+      h('button', { class: 'link small', type: 'button', onclick: () => app.go('#/log/checkin') }, 'Add a note')),
+    h('p', { class: 'small muted' }, 'Three taps. It saves when all three are in.'),
+    row('Energy', 'energy', 1, 5, 'Drained', 'Great', 'low'),
+    row('Sleep', 'sleep', 1, 5, 'Poor', 'Great', 'low'),
+    row('Leg soreness', 'legSoreness', 0, 5, 'None', 'Severe', 'high'));
 }
 
 function isInstalled(app) {
@@ -98,7 +131,7 @@ export function weekView(app) {
   const checkedToday = s.checkins.some((c) => c.date === today);
   const logCount = s.strengthLogs.length + s.runLogs.length;
   const lastBackup = s.settings.lastBackupAt;
-  const backupDue = logCount >= 3 && (!lastBackup || daysBetween(lastBackup, today) >= 14);
+  const backupDue = logCount >= 3 && (!lastBackup || daysBetween(lastBackup, today) >= 7);
   const warnings = scheduleWarnings(s.schedule);
 
   return h('div', null,
@@ -115,13 +148,15 @@ export function weekView(app) {
 
       nextCard(app, m),
 
-      liftedYesterday && !checkedToday ? h('div', { class: 'card' },
+      quickCheckin(app),
+
+      liftedYesterday && !checkedToday && app.now().getHours() >= 12 ? h('div', { class: 'card' },
         h('h3', null, 'How are your legs today?'),
         h('p', { class: 'small muted' }, 'A 20-second check-in after a strength day helps the coach protect your runs.'),
         h('button', { class: 'btn block', type: 'button', onclick: () => app.go('#/log/checkin') }, 'Check in')) : null,
 
       h('div', { class: 'stats' },
-        h('div', { class: 'stat' }, h('b', null, `${m.runsDone}/${m.runsPlanned}`), h('span', null, `runs · ${m.runKm.toFixed(1)} km`)),
+        h('div', { class: 'stat' }, h('b', null, `${m.runsDone}/${m.runsPlanned}`), h('span', null, `runs · ${m.runKm.toFixed(1)} km${m.runsExtra ? ` · +${m.runsExtra} extra` : ''}`)),
         h('div', { class: 'stat' }, h('b', null, `${m.strengthDone}/${m.strengthPlanned}`), h('span', null, 'strength sessions'))),
 
       h('div', { class: 'days', role: 'list', 'aria-label': 'This week' },

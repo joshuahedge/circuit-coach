@@ -3,7 +3,7 @@
 // drops older caches when it takes over. A waiting worker takes over when the page posts 'skipWaiting'.
 // The build line below is rewritten by tools/sw-files.ps1 so this file changes with every build, which
 // is what makes every browser notice an update.
-// build be37f007d57c
+// build db941c23ba66
 importScripts('./sw-files.js');
 
 const CACHE = `coach-${self.COACH_BUILD}`;

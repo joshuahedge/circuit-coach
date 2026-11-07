@@ -89,11 +89,28 @@ describe('ui: week', () => {
     expect(root.querySelectorAll('.item.s-done').length).toBe(3);
   });
 
-  it('asks for a check-in the day after strength', () => {
-    const s = setupState();
-    addLog(s, 'A', '2026-11-03');
-    const { root } = mount(s, '2026-11-04');
-    expect(root.textContent).toContain('How are your legs today?');
+  it('a three-tap morning check-in saves itself, with Undo', () => {
+    const { app, root } = mount(setupState(), '2026-11-04');
+    const card = () => [...root.querySelectorAll('.card')].find((c) => c.textContent.includes('This morning'));
+    const pick = (label, value) => [...card().querySelectorAll(`[aria-label="${label}"] .chip`)].find((b) => b.textContent === value).click();
+    pick('Energy', '4');
+    pick('Sleep', '3');
+    expect(app.state.checkins.length).toBe(0);
+    pick('Leg soreness', '2');
+    expect(app.state.checkins.length).toBe(1);
+    expect(app.state.checkins[0]).toEqual({ ...app.state.checkins[0], date: '2026-11-04', energy: 4, sleep: 3, legSoreness: 2 });
+    expect(card()).toBe(undefined);
+    click(root.querySelector('.toast'), 'Undo');
+    expect(app.state.checkins.length).toBe(0);
+  });
+
+  it('Start on the Week screen opens the workout straight away', () => {
+    const { app, root } = mount(setupState(), '2026-11-05');
+    click(root.querySelector('.next-card'), 'Start Session B');
+    expect(app.route.name).toBe('strength');
+    expect(app.state.draft.sessionId).toBe('B');
+    expect(app.state.draft.runProtect).toBe(true);
+    expect(root.querySelector('.dock')).toBeTruthy();
   });
 });
 
@@ -208,6 +225,23 @@ describe('ui: logging', () => {
     expect(r.durationSec).toBe(2535);
     expect(r.runType).toBe('tempo');
     expect(r.sorenessAffected).toBe(false);
+  });
+
+  it('a run on a non-run day asks whether it replaces a planned run', () => {
+    const s = setupState();
+    addRun(s, '2026-11-02', { km: 5, sec: 1950, type: 'easy' });
+    const { app, root } = mount(s, '2026-11-05');
+    app.go('#/log/run');
+    click(root, 'Easy 5.0 km · 32:30');
+    expect(root.querySelector('[aria-label="Distance in km"]').value).toBe('5');
+    expect(root.textContent).toContain('This run is');
+    click(root, 'Sat long run, moved');
+    click(root, 'Long');
+    click(root, 'Save run');
+    const r = app.state.runLogs[1];
+    expect(r.forDay).toBe('2026-11-07');
+    expect(r.runType).toBe('long');
+    expect(r.durationSec).toBe(1950);
   });
 
   it('logs a check-in', () => {
@@ -346,7 +380,7 @@ describe('ui: coach and plan', () => {
     const run = addRun(s, '2026-11-02', { km: 5 });
     const { app, root } = mount(s, '2026-11-04');
     app.go(`#/log/run/${run.id}`);
-    click(root, 'Delete');
+    click(root, 'Delete run');
     expect(app.state.runLogs.length).toBe(0);
     click(root.querySelector('.toast'), 'Undo');
     expect(app.state.runLogs[0].id).toBe(run.id);

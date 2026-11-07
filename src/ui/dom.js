@@ -86,12 +86,15 @@ export function chips({ options, value, onChange, label, scale = false, allowCle
   return wrap;
 }
 
-export function scaleChips({ min, max, value, onChange, label, lowLabel, highLabel }) {
+// bad: which end is the worrying one ('low' or 'high'), marked the same way on every scale.
+export function scaleChips({ min, max, value, onChange, label, lowLabel, highLabel, bad = null }) {
   const options = [];
   for (let i = min; i <= max; i++) options.push({ value: i, label: String(i) });
   return h('div', null,
     chips({ options, value, onChange, label, scale: true, allowClear: true }),
-    lowLabel || highLabel ? h('div', { class: 'scale-labels' }, h('span', null, lowLabel || ''), h('span', null, highLabel || '')) : null);
+    lowLabel || highLabel ? h('div', { class: 'scale-labels' },
+      h('span', { class: bad === 'low' ? 'bad' : null }, lowLabel || ''),
+      h('span', { class: bad === 'high' ? 'bad' : null }, highLabel || '')) : null);
 }
 
 export function stepper({ value, min = 0, max = 999, step = 1, onChange, label }) {

@@ -4,6 +4,7 @@ import { DAY_KEYS, DAY_NAMES, DAY_SHORT, weekStart } from '../dates.js';
 import { recommendStrengthDays, scheduleWarnings } from '../schedule.js';
 import { createInitialPlan } from '../plan.js';
 import { tenKFrom } from './forms.js';
+import { pickBackupFile } from './plan.js';
 import { newId } from '../store.js';
 import { SAFETY_NOTE } from '../library.js';
 
@@ -87,7 +88,8 @@ export function setupView(app) {
           h('p', null, 'Which runs you do on which days, how your starting numbers were counted, and which days suit strength. About two minutes.')),
         h('p', { class: 'small muted' }, SAFETY_NOTE),
         h('p', { class: 'small muted' }, 'Everything stays on this phone. Back it up from the Plan tab.'),
-        h('button', { class: 'btn primary block', type: 'button', onclick: () => goStep(1) }, 'Start')),
+        h('button', { class: 'btn primary block', type: 'button', onclick: () => goStep(1) }, 'Start'),
+        h('button', { class: 'btn ghost block', type: 'button', style: { marginTop: '8px' }, onclick: () => pickBackupFile(app) }, 'Restore from a backup file')),
     ];
   }
 

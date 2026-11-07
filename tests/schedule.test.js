@@ -4,6 +4,12 @@ import {
 } from '../src/schedule.js';
 import { emptyState } from '../src/store.js';
 
+let runSeq = 0;
+function addRunTo(s, date, runType, forDay = null) {
+  runSeq += 1;
+  s.runLogs.push({ id: `x${runSeq}`, date, distanceKm: 5, durationSec: 1800, runType, forDay });
+}
+
 function state(runDays, strengthDays = { tue: 'A', thu: 'B' }) {
   const s = emptyState(new Date(2026, 10, 2));
   s.setupDone = true;
@@ -112,6 +118,35 @@ describe('schedule: week model', () => {
     const m = weekModel(s, '2026-11-05');
     expect(m.days[0].planned[0].status).toBe('moved');
     expect(m.days[2].planned[0].status).toBe('missed');
+  });
+
+  it('an extra run never ticks a planned run still ahead', () => {
+    const s = state({ mon: 'easy', wed: 'quality', sat: 'long' });
+    addRunTo(s, '2026-11-02', 'easy');
+    addRunTo(s, '2026-11-04', 'tempo');
+    addRunTo(s, '2026-11-05', 'easy');
+    const m = weekModel(s, '2026-11-05');
+    expect(m.days[5].planned[0].status).toBe('upcoming');
+    expect(m.runsExtra).toBe(1);
+    expect(m.runsDone).toBe(2);
+    expect(m.nextUp.item.kind).toBe('strength');
+  });
+
+  it('a run logged as a planned run done early ticks that slot', () => {
+    const s = state({ mon: 'easy', wed: 'quality', sat: 'long' });
+    addRunTo(s, '2026-11-05', 'long', '2026-11-07');
+    const m = weekModel(s, '2026-11-05');
+    expect(m.days[5].planned[0].status).toBe('moved');
+    expect(m.runsExtra).toBe(0);
+    expect(m.runsDone).toBe(1);
+  });
+
+  it('a missed slot only takes a run of a fitting type', () => {
+    const s = state({ mon: 'easy', wed: 'quality', sat: 'long' });
+    addRunTo(s, '2026-11-03', 'long');
+    const m = weekModel(s, '2026-11-05');
+    expect(m.days[0].planned[0].status).toBe('missed');
+    expect(m.runsExtra).toBe(1);
   });
 
   it('a strength session on another day still counts', () => {

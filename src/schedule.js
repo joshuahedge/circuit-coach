@@ -123,17 +123,27 @@ export function weekModel(state, today) {
     checkin: state.checkins.find((c) => c.date === iso) || null,
   }));
 
-  // Planned runs: a run on the same day first, then any other run this week fills the earliest open slot.
+  // Planned runs, in three passes: (1) a run on the same day, unless it was logged for another day;
+  // (2) a run logged as this planned run, done early or late; (3) a missed slot (already past) takes a spare
+  // run of a fitting type. A slot still ahead is never ticked by a run on another day: that is an extra run.
   const usedRuns = new Set();
+  const sorted = [...runs].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   const runSlots = days.flatMap((d) => d.planned.filter((p) => p.kind === 'run').map((p) => ({ d, p })));
+  const take = (p, r, status) => { usedRuns.add(r.id); p.status = status; p.logId = r.id; };
   for (const { d, p } of runSlots) {
-    const same = d.runs.find((r) => !usedRuns.has(r.id));
-    if (same) { usedRuns.add(same.id); p.status = 'done'; p.logId = same.id; }
+    const same = d.runs.find((r) => !usedRuns.has(r.id) && (!r.forDay || r.forDay === d.iso));
+    if (same) take(p, same, 'done');
   }
-  for (const { p } of runSlots) {
+  for (const { d, p } of runSlots) {
     if (p.status) continue;
-    const other = runs.find((r) => !usedRuns.has(r.id));
-    if (other) { usedRuns.add(other.id); p.status = 'moved'; p.logId = other.id; }
+    const linked = sorted.find((r) => !usedRuns.has(r.id) && r.forDay === d.iso);
+    if (linked) take(p, linked, 'moved');
+  }
+  const fits = (r, p) => !p.runType || p.runType === 'other' || r.runType === 'other' || runCategory(r.runType) === p.runType;
+  for (const { d, p } of runSlots) {
+    if (p.status || d.iso >= today) continue;
+    const spare = sorted.find((r) => !usedRuns.has(r.id) && !r.forDay && fits(r, p));
+    if (spare) take(p, spare, 'moved');
   }
   // Planned strength: any log of that session this week.
   for (const d of days) {
@@ -166,7 +176,8 @@ export function weekModel(state, today) {
     weekStart: isos[0],
     days,
     runKm: Math.round(runs.reduce((s, r) => s + (Number(r.distanceKm) || 0), 0) * 10) / 10,
-    runsDone: runs.length,
+    runsDone: runSlots.filter(({ p }) => p.status === 'done' || p.status === 'moved').length,
+    runsExtra: runs.filter((r) => !usedRuns.has(r.id)).length,
     runsPlanned: Object.keys(state.schedule.runDays).length,
     strengthDone: lifts.length,
     strengthPlanned: Object.keys(state.schedule.strengthDays).length,

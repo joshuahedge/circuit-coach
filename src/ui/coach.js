@@ -63,9 +63,11 @@ const GHOST_MS = 8000;
 
 // After Accept or Reject the card stays where it was for a few seconds as "Accepted · Undo", so the next
 // card never slides under a finger mid-tap.
-function decide(app, s, status, fn, message) {
+function decide(app, s, status, fn, message, cardEl = null) {
   app.coachGhosts = app.coachGhosts || new Map();
-  app.coachGhosts.set(s.key, { s, status, until: Date.now() + GHOST_MS });
+  // Keep the card's height so nothing below it moves up under the finger.
+  const height = cardEl && cardEl.isConnected ? cardEl.offsetHeight : null;
+  app.coachGhosts.set(s.key, { s, status, until: Date.now() + GHOST_MS, height });
   app.update(fn);
   const undo = () => {
     app.coachGhosts.delete(s.key);
@@ -76,7 +78,7 @@ function decide(app, s, status, fn, message) {
 
 function ghostCard(app, g) {
   const can = canUndoDecision(app.state, g.s.key);
-  return h('div', { class: 'card ghost' },
+  return h('div', { class: 'card ghost', style: g.height ? { minHeight: `${g.height}px` } : null },
     h('div', { class: `kind ${g.status === 'rejected' ? 'reduce' : 'progress'}` }, g.status === 'rejected' ? 'Rejected' : g.status === 'edited' ? 'Accepted with your changes' : 'Accepted'),
     h('h3', null, g.s.title),
     can ? h('button', {
@@ -87,13 +89,14 @@ function ghostCard(app, g) {
 
 function suggestionCard(app, s) {
   const today = app.today();
-  const accept = () => decide(app, s, 'accepted', (x) => acceptSuggestion(x, s, today), `Plan updated: ${s.title}`);
-  const reject = () => decide(app, s, 'rejected', (x) => rejectSuggestion(x, s, today), 'Kept your plan as it is');
+  let card = null;
+  const accept = () => decide(app, s, 'accepted', (x) => acceptSuggestion(x, s, today), `Plan updated: ${s.title}`, card);
+  const reject = () => decide(app, s, 'rejected', (x) => rejectSuggestion(x, s, today), 'Kept your plan as it is', card);
   const edit = () => openRxEditor(app, {
     title: `Edit: ${s.exerciseName}`, p: s.to, saveLabel: 'Accept with changes',
-    onSave: (p) => decide(app, s, 'edited', (x) => acceptSuggestion(x, s, today, p), 'Plan updated with your changes'),
+    onSave: (p) => decide(app, s, 'edited', (x) => acceptSuggestion(x, s, today, p), 'Plan updated with your changes', card),
   });
-  return h('div', { class: 'card' },
+  card = h('div', { class: 'card' },
     h('div', { class: `kind ${s.kind}` }, s.kind === 'progress' ? `Progress · Session ${s.sessionId}` : `Ease off · Session ${s.sessionId}`),
     h('h3', null, s.title),
     h('p', { class: 'small' }, s.reason),
@@ -108,6 +111,7 @@ function suggestionCard(app, s) {
       h('button', { class: 'btn primary', type: 'button', 'aria-label': `Accept: ${s.title}`, onclick: accept }, 'Accept'),
       h('button', { class: 'btn', type: 'button', 'aria-label': `Edit: ${s.title}`, onclick: edit }, 'Edit'),
       h('button', { class: 'btn', type: 'button', 'aria-label': `Reject: ${s.title}`, onclick: reject }, 'Reject')));
+  return card;
 }
 
 // Suggestions in a stable order: decided ones keep their place (as ghosts) until they expire.

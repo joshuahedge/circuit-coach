@@ -26,12 +26,21 @@ there will not show up in the installed app.
 
 ## Using it
 
-- **Week:** what's next, this week's runs and sessions, check-in prompts, schedule warnings.
-- **Log:** Session A or B set by set, a run, a morning check-in, or benchmark tests. Tap any recent
-  entry to see, edit or delete it.
+- **Week:** what's next (Start goes straight into the session), this week's runs and sessions, a
+  three-tap morning check-in until noon, schedule warnings.
+- **Workout:** the panel at the bottom leads you through it: a 5-minute warm-up timer, then each set
+  with big + / − and Done. Done starts the rest timer (45 s between exercises, 75 s between rounds by
+  default; change it under Rest), and during the rest you can say how many reps you had left. Timed
+  exercises like the side plank have a hold timer (3-2-1, then it counts up and logs the seconds).
+  Circuit order by default (one set of each exercise per round), or one exercise at a time. Finish
+  asks for effort, pain and notes, then shows how the session compared with last time. Beeps play only
+  while the app is open (the screen stays on); the iPhone silent switch mutes them unless you turn on
+  "Beep on silent".
+- **Log:** a run (with one-tap "same as a recent run"), a morning check-in, or benchmark tests. Tap any
+  recent entry to see, edit or delete it (Undo for 6 seconds; strength sessions can be edited for 48 hours).
 - **Progress:** weekly km, consistency, each exercise, run pace by type, session effort, benchmarks.
-- **Coach:** suggested changes with Accept / Edit / Reject, notes, plan history (go back to any
-  version), and **Copy summary for Claude** for a second opinion in a chat.
+- **Coach:** suggested changes with the numbers behind them, Accept / Edit / Reject (with Undo), notes,
+  plan history (go back to any version), and **Copy summary for Claude** for a second opinion in a chat.
 - **Plan:** the exercises with how-to steps and swaps, the schedule, your profile, backup and restore.
 
 ## How the coach decides

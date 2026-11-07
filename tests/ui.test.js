@@ -163,6 +163,7 @@ describe('ui: logging', () => {
     click(dock(), 'Warmed up: first set');
     expect(dock().textContent).toContain('Reverse lunge');
     expect(dock().textContent).toContain('8–10 reps per leg · 2 s down');
+    expect(dock().textContent.includes('null') || dock().textContent.includes('undefined')).toBe(false);
     expect(dock().textContent).toContain('Set 1 of 3 · Left');
     click(dock(), 'Done');
     expect(app.state.draft.rest).toBe(null);

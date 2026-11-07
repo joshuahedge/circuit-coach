@@ -213,7 +213,31 @@ opened in a Safari tab rather than from the home screen (Safari tabs keep separa
 - Owner's real-iPhone checks after publishing: install from Safari, log a session in airplane mode, back up to
   Files, restore, receive an update.
 
+## 10a. Workout flow and timers (added 7 Nov 2026 after a mobile UX review)
+
+- Focus mode: during a session the tab bar is hidden and a "Now" dock sits at the bottom (thumb reach).
+  Week's Start creates the session at once (run protection on when it applies).
+- Order: circuit by default (one set of each exercise per round, the brief's "rounds"), or one exercise at a
+  time. Both sides of a set go back to back. Next set = the next unfinished one after the last done.
+- Dock modes: warm-up (optional 5-minute timer), set (exercise, target, set and side, last time, stepper,
+  Done), rest (countdown, −15/+15/Skip, "reps left in the tank?" 0–4+ for the set just done, what is next),
+  hold (3-2-1 lead-in, counts up, beeps at the bottom and top of the target, Stop logs the seconds),
+  done (Finish). Rest defaults 45 s between exercises, 75 s between rounds or straight sets; 5 s to switch
+  sides after a hold. Timers are timestamps in the draft, so they survive the screen locking.
+- Beeps: Web Audio after the first tap; muted by the iPhone silent switch unless "Beep on silent" is on
+  (Audio Session 'playback', unverified on a device). The countdown and a colour flash always show.
+- Prefill: reps start at last time's number or the bottom of the range, whichever is higher; holds start at
+  the bottom. Done rows collapse to their result with Edit.
+- Finish sheet (effort required, pain, notes, duration; over 90 min on the clock asks for the real
+  duration), then a summary against the previous log, new suggestions and a backup nudge (7 days).
+  Saved sessions can be edited for 48 hours.
+- Coach cards show the numbers behind each suggestion; a decided card keeps its place and height for 8 s
+  with Undo (undo removes the plan version while it is the latest).
+- Runs only tick a planned run on another day when logged as that run ("This run is …") or when they fill
+  an already-missed slot of a fitting type; extras are counted separately.
+- Deletes happen at once with Undo instead of a confirm. A three-tap check-in shows on Week until noon.
+
 ## 11. Not in version 1
 
 Reminder notifications (iPhone web push needs a server), cloud sync or accounts, Strava or Apple Health import,
-rest timer, CSV export.
+CSV export, reasons on Reject.

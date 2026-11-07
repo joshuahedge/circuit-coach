@@ -1,6 +1,6 @@
 // The "Now" dock at the bottom of a workout: warm-up, then the next set with big controls, the rest
 // countdown, the hold timer for timed exercises, and Finish when every set is done. Thumb reach, one tap a set.
-import { h, ICONS, stepper, chips, group, toggle } from './dom.js';
+import { h, append, ICONS, stepper, chips, group, toggle } from './dom.js';
 import { openSheet } from './sheet.js';
 import {
   upNext, rowAt, completeSet, adjustRest, endRest, remainingSec, startHold, holdElapsed, stopHold, cancelHold,
@@ -68,6 +68,7 @@ export function workoutDock(app, d, { onFinish, warmupText = '' }) {
   const cfg = timerSettings(app);
   const now = () => app.now().getTime();
   const el = h('div', { class: 'dock', role: 'region', 'aria-label': 'Next set and timer' });
+  const put = (...kids) => append(el, kids); // skips nulls (native append would print "null")
   if (app.dockFlash) { el.classList.add('flash'); app.dockFlash = false; }
   const gear = h('button', { class: 'dock-gear', type: 'button', 'aria-label': 'Order and rest settings', onclick: () => openTimerSettings(app) }, 'Rest');
   let tick = () => {};
@@ -89,7 +90,7 @@ export function workoutDock(app, d, { onFinish, warmupText = '' }) {
   function warmupMode() {
     const running = d.warmup && d.warmup.endsAt;
     if (!running) {
-      el.append(
+      put(
         h('div', { class: 'dock-head' },
           h('div', { class: 'grow' }, h('div', { class: 'dock-title' }, 'Warm-up · 5 min'), h('div', { class: 'dock-sub clamp' }, warmupText)),
           gear),
@@ -99,7 +100,7 @@ export function workoutDock(app, d, { onFinish, warmupText = '' }) {
       return;
     }
     const clockEl = h('div', { class: 'dock-clock' });
-    el.append(
+    put(
       h('div', { class: 'dock-head' },
         h('div', { class: 'grow' }, h('div', { class: 'dock-title' }, 'Warm-up'), h('div', { class: 'dock-sub clamp' }, warmupText)),
         clockEl),
@@ -118,7 +119,7 @@ export function workoutDock(app, d, { onFinish, warmupText = '' }) {
     const t = e.target;
     const isSec = t.unit === 'seconds';
     const over = h('div', { class: 'dock-over' });
-    el.append(
+    put(
       h('div', { class: 'dock-head' },
         h('div', { class: 'grow' },
           h('div', { class: 'dock-title' }, e.variation),
@@ -126,17 +127,18 @@ export function workoutDock(app, d, { onFinish, warmupText = '' }) {
           h('div', { class: 'dock-sub' }, setLabel(d, ref), !isSec && row.last != null ? ` · last time ${row.last}` : '')),
         gear),
       over,
+      // Timed exercises: the hold timer is the main action; typing the seconds is the fallback.
+      isSec ? h('button', {
+        class: 'btn primary dock-btn block', type: 'button', style: { marginBottom: '8px' },
+        onclick: () => { unlock(); startHold(d, ref, now()); app.save(); app.render(); },
+      }, 'Start the hold timer') : null,
       h('div', { class: 'dock-row' },
         stepper({
           value: row.value, min: 0, max: isSec ? 600 : 200, step: isSec ? 5 : 1, label: `${e.variation}, ${setLabel(d, ref)}`,
           onChange: (v) => { row.value = v; app.save(); },
         }),
-        isSec ? h('button', {
-          class: 'btn primary dock-btn grow', type: 'button',
-          onclick: () => { unlock(); startHold(d, ref, now()); app.save(); app.render(); },
-        }, 'Start hold') : null,
         h('button', { class: `btn ${isSec ? '' : 'primary '}dock-btn grow`, type: 'button', 'aria-label': `Done: ${e.variation}, ${setLabel(d, ref)}`, onclick: () => complete(ref) },
-          h('span', { 'aria-hidden': 'true', html: ICONS.check }), 'Done')));
+          h('span', { 'aria-hidden': 'true', html: ICONS.check }), isSec ? 'Log it' : 'Done')));
     tick = () => {
       if (!d.restEndedAt) return;
       const ago = Math.floor((now() - d.restEndedAt) / 1000);
@@ -155,7 +157,7 @@ export function workoutDock(app, d, { onFinish, warmupText = '' }) {
       lastEx.rows.forEach((row) => { if (row.set === last.set && row.done) row.rir = v; });
       app.save();
     };
-    el.append(
+    put(
       h('div', { class: 'dock-head' },
         h('div', { class: 'grow' },
           h('div', { class: 'dock-title' }, r.kind === 'switch' ? 'Switch sides' : 'Rest'),
@@ -204,7 +206,7 @@ export function workoutDock(app, d, { onFinish, warmupText = '' }) {
         app.render();
       },
     }, 'Stop');
-    el.append(
+    put(
       h('div', { class: 'dock-head' },
         h('div', { class: 'grow' }, h('div', { class: 'dock-title' }, `${e.variation} · ${setLabel(d, hd)}`), sub),
         clockEl),
@@ -232,7 +234,7 @@ export function workoutDock(app, d, { onFinish, warmupText = '' }) {
   }
 
   function doneMode() {
-    el.append(
+    put(
       h('div', { class: 'dock-head' },
         h('div', { class: 'grow' }, h('div', { class: 'dock-title' }, 'Every set done'), h('div', { class: 'dock-sub' }, 'Cool down, then save the session.')),
         gear),

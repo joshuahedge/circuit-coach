@@ -2,6 +2,7 @@
 import { createApp } from './app.js';
 import { memoryStorage } from './store.js';
 import { registerServiceWorker } from './ui/pwa.js';
+import { fitTextSize } from './ui/textSize.js';
 
 function pickStorage() {
   try {
@@ -15,6 +16,9 @@ function pickStorage() {
 }
 
 async function boot() {
+  fitTextSize(document);
+  // Only the app frame scrolls. If iPhone nudged the page to show the keyboard, put it back afterwards.
+  window.addEventListener('focusout', () => setTimeout(() => { if (window.scrollY) window.scrollTo(0, 0); }, 60));
   const params = new URLSearchParams(location.search);
   let { storage, ok } = pickStorage();
   let now;

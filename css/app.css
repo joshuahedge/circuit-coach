@@ -57,8 +57,9 @@
 }
 
 * { box-sizing: border-box; }
-/* On iPhone, -apple-system-body follows the Larger Text setting; elsewhere it is ignored (16px). */
-html { -webkit-text-size-adjust: 100%; font: -apple-system-body; }
+/* On iPhone, -apple-system-body follows the Larger Text setting; src/ui/textSize.js then damps it.
+   Elsewhere it is ignored (16px). */
+html { -webkit-text-size-adjust: 100%; font: -apple-system-body; overscroll-behavior: none; }
 body {
   margin: 0;
   background: var(--bg);
@@ -67,7 +68,7 @@ body {
   font-size: 1rem;
   line-height: 1.45;
   -webkit-tap-highlight-color: transparent;
-  overscroll-behavior-y: none;
+  overscroll-behavior: none;
 }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
@@ -80,15 +81,18 @@ button { cursor: pointer; }
 .hidden { display: none !important; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-/* Frame */
-.app { min-height: 100dvh; padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + 16px); }
+/* Frame. Only .app scrolls; the page itself never moves. On iPhone a scrolling page drags pinned bars
+   around (the viewport resizes and the page bounces), which made the tab bar jump. No bounce either. */
+.app {
+  position: fixed; inset: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + 16px);
+}
 .app.no-tabs { padding-bottom: calc(var(--safe-b) + 24px); }
 .topbar {
   position: sticky; top: 0; z-index: 5;
   padding: calc(var(--safe-t) + 10px) 16px 10px;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  -webkit-backdrop-filter: saturate(1.6) blur(14px);
-  backdrop-filter: saturate(1.6) blur(14px);
+  background: var(--bg);
   display: flex; align-items: center; gap: 10px; min-height: 52px;
 }
 .topbar h1 { font-size: 1.5rem; line-height: 1.15; margin: 0; letter-spacing: -.02em; flex: 1; min-width: 0; }
@@ -101,9 +105,7 @@ button { cursor: pointer; }
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
   display: grid; grid-template-columns: repeat(5, 1fr);
   padding: 4px 4px calc(var(--safe-b) + 4px);
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  -webkit-backdrop-filter: saturate(1.6) blur(16px);
-  backdrop-filter: saturate(1.6) blur(16px);
+  background: var(--surface);
   border-top: 1px solid var(--line);
 }
 .tab {
@@ -409,8 +411,8 @@ table.bench th { font-size: .75rem; color: var(--muted); font-weight: 650; }
 .steps { display: flex; gap: 6px; margin: 8px 0 16px; }
 .steps i { flex: 1; height: 4px; border-radius: 2px; background: var(--line); }
 .steps i.on { background: var(--primary); }
-.day-pick { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
-.day-pick .chip { padding: 0; border-radius: 12px; font-size: .85rem; }
+.day-pick { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
+.day-pick .chip { padding: 0; min-width: 0; border-radius: 12px; font-size: .85rem; }
 .runday { padding: 12px 0; border-top: 1px solid var(--line); }
 .runday:first-child { border-top: 0; padding-top: 0; }
 .runday .name { font-weight: 700; margin-bottom: 8px; }
@@ -418,4 +420,26 @@ table.bench th { font-size: .75rem; color: var(--muted); font-weight: 650; }
 @media (prefers-color-scheme: dark) {
   .btn.strength, .btn.run, .badge, .pain-chip[aria-pressed="true"] { color: #0d1015; }
   .item.s-done .st, .item.s-moved .st { color: #0d1015; }
+}
+
+/* Small phones (iPhone mini and SE are 375 px wide, most others 390): smaller display type, so titles,
+   timers and numbers fit without wrapping or crowding. */
+@media (max-width: 400px) {
+  .topbar h1 { font-size: 1.3rem; }
+  .next-card .what { font-size: 1.25rem; }
+  .stat b { font-size: 1.3rem; }
+  .card h2, .card h3 { font-size: 1rem; }
+  .sheet h2 { font-size: 1.12rem; }
+  .setup-hero h1 { font-size: 1.7rem; }
+  .ex-head h3 { font-size: 1rem; }
+  .btn { font-size: .97rem; }
+  .dock-title { font-size: 1rem; }
+  .dock-target { font-size: 1.1rem; }
+  .dock-clock { font-size: 2.8rem; }
+  .dock-clock.big { font-size: 3rem; }
+  .dock-row .stepper-value { font-size: 1.3rem; }
+  .dock-row .stepper button { font-size: 1.4rem; }
+  .dock-btn { min-height: 52px; font-size: 1rem; }
+  table.bench { font-size: .8rem; }
+  table.bench th, table.bench td { padding: 7px 4px; }
 }

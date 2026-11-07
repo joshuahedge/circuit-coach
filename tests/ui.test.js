@@ -4,6 +4,7 @@ import { memoryStorage, saveState, makeBackup, emptyState } from '../src/store.j
 import { currentPlan } from '../src/plan.js';
 import { setupState, addLog, addCheckin } from './fixtures.js';
 import { addDays } from '../src/dates.js';
+import { fittedRootPx } from '../src/ui/textSize.js';
 
 function mount(state, today = '2026-11-20') {
   const root = document.getElementById('mount');
@@ -26,6 +27,28 @@ const click = (root, text) => {
 };
 const type = (input, value) => { input.value = value; input.dispatchEvent(new Event('input', { bubbles: true })); };
 const tick = () => new Promise((r) => setTimeout(r, 20));
+
+describe('ui: small phones', () => {
+  it('the tab bar sits outside the scrolling frame, and a workout hides it', () => {
+    const { app, root } = mount(setupState(), '2026-11-03');
+    expect(app.frame.querySelector('.tabbar')).toBe(null);
+    expect(root.querySelector('.tabbar')).toBeTruthy();
+    app.go('#/log/strength/A');
+    click(root, 'Start Session A');
+    expect(root.querySelector('.tabbar')).toBe(null);
+    expect(app.frame.querySelector('.dock')).toBeTruthy();
+  });
+
+  it("iPhone's text size is followed at half strength, 14 to 19 px", () => {
+    expect(fittedRootPx(16)).toBe(null);
+    expect(fittedRootPx(17)).toBe(16);
+    expect(fittedRootPx(19)).toBe(17);
+    expect(fittedRootPx(23)).toBe(19);
+    expect(fittedRootPx(53)).toBe(19);
+    expect(fittedRootPx(14)).toBe(14.5);
+    expect(fittedRootPx(NaN)).toBe(null);
+  });
+});
 
 describe('ui: setup', () => {
   it('a fresh app walks through setup into the week', () => {

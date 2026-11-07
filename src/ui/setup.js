@@ -60,7 +60,7 @@ export function setupView(app) {
   const STEPS = 4;
 
   const redraw = () => { fill(root, draw()); };
-  const goStep = (n) => { w.step = n; redraw(); if (app.win.scrollTo) app.win.scrollTo(0, 0); };
+  const goStep = (n) => { w.step = n; redraw(); if (app.scrollToTop) app.scrollToTop(); };
   const progress = () => h('div', { class: 'steps', 'aria-hidden': 'true' },
     Array.from({ length: STEPS }, (_, i) => h('i', { class: i <= w.step ? 'on' : '' })));
   const nav = (canNext, nextLabel = 'Next', onNext = () => goStep(w.step + 1)) => h('div', { class: 'btn-row' },

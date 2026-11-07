@@ -87,9 +87,12 @@ export function createApp({ root, storage, now = () => new Date(), useHash = tru
     lastKey: null,
   };
   root.textContent = '';
+  // Only the frame scrolls; the page itself never does (see .app in app.css). The tab bar sits outside it.
   app.frame = h('div', { class: 'app' });
+  app.tabHost = h('div', { class: 'tabhost' });
   app.layer = h('div', { class: 'layer' });
-  root.append(app.frame, app.layer);
+  root.append(app.frame, app.tabHost, app.layer);
+  app.scrollToTop = () => { app.frame.scrollTop = 0; };
 
   app.today = () => todayISO(app.now());
   app.toast = (text, opts) => toast(app, text, opts);
@@ -155,10 +158,12 @@ export function createApp({ root, storage, now = () => new Date(), useHash = tru
     if (!app.state) { view = recoveryView(app); tabs = false; } else if (!app.state.setupDone) { view = setupView(app); tabs = false; } else view = VIEWS[app.route.name](app);
     // During a workout the tab bar gives way to the Now dock: one task, nothing else to tap by mistake.
     const focus = tabs && app.route.name === 'strength' && app.state.draft && app.state.draft.sessionId === app.route.sessionId;
+    const scrolled = app.frame.scrollTop;
     app.frame.className = `app${tabs && !focus ? '' : ' no-tabs'}${focus ? ' focus' : ''}`;
     app.frame.replaceChildren(view);
-    if (tabs && !focus) app.frame.append(tabbar(app));
-    if (changed && typeof win.scrollTo === 'function' && useHash) win.scrollTo(0, 0);
+    app.tabHost.replaceChildren(...(tabs && !focus ? [tabbar(app)] : []));
+    // A new screen starts at the top; a redraw of the same screen stays where you were.
+    app.frame.scrollTop = changed ? 0 : scrolled;
   };
 
   if (useHash) {

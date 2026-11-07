@@ -1,7 +1,7 @@
 // Coach: suggestions with Accept / Edit / Reject, notes, block review, plan history, summary for Claude.
 import { h, fill, topbar, stepper, field } from './dom.js';
 import { openSheet, confirmSheet } from './sheet.js';
-import { coachReview, acceptSuggestion, rejectSuggestion, dismissNote, canUndoDecision, undoDecision } from '../coach.js';
+import { coachReview, acceptSuggestion, rejectSuggestion, dismissNote, canUndoDecision, undoDecision, exerciseStanding } from '../coach.js';
 import { currentPlan, prescriptionLabel, revertPlan, tempoLabel } from '../plan.js';
 import { EXERCISES } from '../library.js';
 import { buildSummary } from '../summary.js';
@@ -194,6 +194,12 @@ export function coachView(app) {
       !r.suggestions.length && !r.notes.length ? h('div', { class: 'card info' },
         h('h3', null, 'No changes suggested'),
         h('p', { class: 'small' }, 'The coach looks at your last two workouts of each exercise. Keep logging; when an exercise is ready, a suggestion appears here with the evidence.')) : null,
+      h('div', { class: 'section-title' }, 'Where each exercise stands'),
+      h('div', { class: 'list' }, exerciseStanding(app.state, today).map((x) => h('div', { class: 'list-item standing' },
+        h('span', { class: `tone ${x.tone}`, 'aria-hidden': 'true' }),
+        h('span', { class: 'grow' },
+          h('b', null, x.name), h('span', { class: 'tiny muted' }, ` · Session ${x.sessionId} · ${x.target}`),
+          h('div', { class: 'small' }, x.text))))),
       h('details', { class: 'explain' },
         h('summary', null, 'How the coach decides'),
         h('div', null,

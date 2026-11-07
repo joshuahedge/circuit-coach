@@ -1,5 +1,5 @@
 import { describe, it, expect } from './harness.js';
-import { coachReview, acceptSuggestion, rejectSuggestion, dismissNote, startNextBlock, canUndoDecision, undoDecision } from '../src/coach.js';
+import { coachReview, acceptSuggestion, rejectSuggestion, dismissNote, startNextBlock, canUndoDecision, undoDecision, exerciseStanding } from '../src/coach.js';
 import { currentPlan, withPrescription } from '../src/plan.js';
 import { setupState, addLog, addCheckin } from './fixtures.js';
 
@@ -354,6 +354,43 @@ describe('coach: limits and decisions', () => {
     s = acceptSuggestion(s, b, '2026-11-20');
     expect(coachReview(s, '2026-11-20').suggestions.filter((x) => x.sessionId === 'A').length).toBe(0);
     expect(coachReview(s, '2026-11-28').suggestions.filter((x) => x.sessionId === 'A').length).toBe(2);
+  });
+});
+
+describe('coach: where each exercise stands', () => {
+  const line = (rows, id, sid = 'A') => rows.find((r) => r.exerciseId === id && r.sessionId === sid);
+
+  it('counts clean sessions towards the next step', () => {
+    const s = setupState();
+    addLog(s, 'A', '2026-11-17', { ex: { 'press-up': top() } });
+    const rows = exerciseStanding(s, '2026-11-18');
+    expect(rows.length).toBe(10);
+    expect(line(rows, 'press-up').text).toContain('1 of 2');
+    expect(line(rows, 'press-up').tone).toBe('good');
+    expect(line(rows, 'reverse-lunge').text).toContain('0 of 2');
+    expect(line(rows, 'sl-rdl', 'B').text).toContain('New target since');
+  });
+
+  it('names a waiting suggestion, a hold, or why it is ready but waiting', () => {
+    const s = setupState();
+    addLog(s, 'A', '2026-11-03', { ex: { 'press-up': top() } });
+    addLog(s, 'A', '2026-11-05', { ex: { 'press-up': top(), 'dead-bug': { value: 'min', rir: 2, pain: true } } });
+    let rows = exerciseStanding(s, '2026-11-06');
+    expect(line(rows, 'press-up').text).toBe('Ready: increases start in week 3');
+    expect(line(rows, 'dead-bug').text).toContain('Suggestion waiting');
+    addLog(s, 'A', '2026-11-17', { ex: { 'press-up': top() } });
+    addLog(s, 'A', '2026-11-19', { ex: { 'press-up': top() } });
+    rows = exerciseStanding(s, '2026-11-20');
+    expect(line(rows, 'press-up').text).toBe('Suggestion waiting: add a rep');
+    addCheckin(s, '2026-11-20', { legSoreness: 5 });
+    expect(line(exerciseStanding(s, '2026-11-20'), 'reverse-lunge').text).toContain('leg soreness');
+  });
+
+  it('flags below-target sets and stale evidence', () => {
+    const s = setupState();
+    addLog(s, 'A', '2026-11-17', { ex: { 'press-up': { value: 7 } } });
+    expect(line(exerciseStanding(s, '2026-11-18'), 'press-up').text).toContain('Below target');
+    expect(line(exerciseStanding(s, '2026-12-10'), 'press-up').text).toContain('Needs a fresh session');
   });
 });
 

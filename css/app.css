@@ -280,6 +280,10 @@ textarea { min-height: 80px; resize: vertical; }
 .app.no-tabs .sticky-action { bottom: calc(var(--safe-b) + 8px); }
 .banner-link { display: block; width: 100%; text-align: left; border: 0; color: var(--ink); font: inherit; }
 .evidence { background: var(--surface-2); border-radius: 10px; padding: 8px 10px; margin: 8px 0 0; }
+.list-item.standing { align-items: flex-start; }
+.tone { width: 10px; height: 10px; border-radius: 50%; flex: none; margin-top: 7px; background: var(--line); }
+.tone.good { background: var(--good); }
+.tone.warn { background: var(--warn); }
 .card.ghost { background: none; border: 2px dashed var(--line); box-shadow: none; }
 .quick-row { margin-top: 12px; }
 .quick-row > span { display: block; margin-bottom: 6px; }

@@ -414,3 +414,54 @@ export function dismissNote(state, note, today) {
 export function startNextBlock(state, today) {
   return { ...state, block: { number: (state.block.number || 1) + 1, startDate: weekStart(today) } };
 }
+
+// Where each exercise stands: one plain line per exercise, so progress is visible between suggestions.
+// tone: 'good' (on its way or ready), 'warn' (on hold), 'neutral'.
+export function exerciseStanding(state, today) {
+  if (!state.setupDone || !state.plans.length) return [];
+  const plan = currentPlan(state);
+  const block = blockInfo(state, today);
+  const recovery = recoveryFlags(state, today);
+  const review = coachReview(state, today);
+  const out = [];
+  for (const sessionId of ['A', 'B']) {
+    for (const p of plan.sessions[sessionId].exercises) {
+      const name = exName(p);
+      const unit = p.unit === 'seconds' ? ' s' : '';
+      const row = (tone, text) => out.push({ sessionId, exerciseId: p.exerciseId, name, target: rxText(p), tone, text });
+      const sug = review.suggestions.find((x) => x.sessionId === sessionId && x.exerciseId === p.exerciseId);
+      if (sug) { row(sug.kind === 'progress' ? 'good' : 'warn', `Suggestion waiting: ${sug.title.replace(`${name}: `, '')}`); continue; }
+      const any = anyEntries(state, sessionId, p);
+      const latest = any[any.length - 1];
+      if (latest && (painFlag(latest.entry) || hasPainNote(latest.log))) { row('warn', `On hold: pain noted on ${formatShort(latest.log.date)}`); continue; }
+      if (p.legHeavy && recovery.legBlock) { row('warn', 'On hold: leg soreness of 4 or more this week'); continue; }
+      if (recovery.lowRecovery) { row('warn', 'On hold: low energy or sleep in recent check-ins'); continue; }
+      const full = matchingEntries(state, sessionId, p).filter((e) => e.full);
+      if (!full.length) { row('neutral', `New target since ${formatShort(p.since)}: two clean sessions at ${p.max}${unit} step it up`); continue; }
+      if (daysBetween(full[full.length - 1].log.date, today) > EVIDENCE_MAX_AGE_DAYS) {
+        row('neutral', `Needs a fresh session (last one ${formatShort(full[full.length - 1].log.date)})`);
+        continue;
+      }
+      const qualifies = ({ log, entry }) => {
+        if (!entryClean(entry) || entry.pain || hasPainNote(log)) return false;
+        const rirs = entryRirs(entry);
+        return rirs.length ? avg(rirs) >= 2 : isNum(log.rpe) && log.rpe <= 7;
+      };
+      const last2 = full.slice(-2);
+      let n = 0;
+      for (let i = last2.length - 1; i >= 0 && qualifies(last2[i]); i--) n += 1;
+      if (n >= 2) {
+        if (block.phase === 'establish') row('good', 'Ready: increases start in week 3');
+        else if (block.phase === 'review') row('good', 'Ready: plan it in the block review');
+        else row('good', 'Ready, waiting its turn: one change at a time');
+        continue;
+      }
+      if (n === 1) { row('good', `1 of 2: one more clean session at ${p.max}${unit} on every set steps it up`); continue; }
+      const last = last2[last2.length - 1];
+      if (entryMissed(last.entry)) row('neutral', `Below target last time: aim for at least ${p.min}${unit} on every set`);
+      else if (entryClean(last.entry)) row('neutral', `Hit ${p.max}${unit} on every set, but with under 2 reps in reserve: once it feels easier`);
+      else row('neutral', `0 of 2: reach ${p.max}${unit} on every set with 2 or more reps in reserve`);
+    }
+  }
+  return out;
+}

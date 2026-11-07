@@ -5,3 +5,4 @@ import './store.test.js';
 import './schedule.test.js';
 import './coach.test.js';
 import './stats.test.js';
+import './draft.test.js';

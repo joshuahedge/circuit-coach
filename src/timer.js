@@ -7,6 +7,8 @@
 export const FLOWS = { circuit: 'Circuit (rounds)', sets: 'One exercise at a time' };
 export const REST_DEFAULTS = { short: 45, long: 75 };
 export const HOLD_LEAD_IN_SEC = 3;
+export const SWITCH_SIDES_SEC = 5;
+export const WARMUP_SEC = 5 * 60;
 
 function active(draft) {
   return draft.exercises.map((e, ei) => ({ e, ei })).filter(({ e }) => e.status !== 'skipped');
@@ -59,7 +61,10 @@ export function restAfter(draft, flow, done, rest = REST_DEFAULTS) {
   if (!next) return null;
   const a = rowAt(draft, done);
   const b = rowAt(draft, next);
-  if (next.ei === done.ei && b.set === a.set) return null;
+  if (next.ei === done.ei && b.set === a.set) {
+    // Other side next: straight on for reps, a few seconds to get into position for a hold.
+    return draft.exercises[done.ei].target.unit === 'seconds' ? { seconds: SWITCH_SIDES_SEC, kind: 'switch' } : null;
+  }
   if (flow === 'sets') return next.ei === done.ei ? { seconds: rest.long, kind: 'set' } : { seconds: rest.short, kind: 'exercise' };
   return b.set > a.set ? { seconds: rest.long, kind: 'round' } : { seconds: rest.short, kind: 'exercise' };
 }
@@ -70,6 +75,8 @@ export function completeSet(draft, ref, { flow, rest = REST_DEFAULTS, nowMs }) {
   row.done = true;
   draft.lastDone = ref;
   draft.hold = null;
+  draft.restEndedAt = null;
+  if (!draft.warmup) draft.warmup = { done: true };
   const r = restAfter(draft, flow, ref, rest);
   draft.rest = r ? { endsAt: nowMs + r.seconds * 1000, total: r.seconds, kind: r.kind } : null;
   return draft.rest;
@@ -82,8 +89,18 @@ export function adjustRest(draft, deltaSec, nowMs) {
   return draft.rest;
 }
 
-export function endRest(draft) {
+// natural: the countdown reached zero (remember when, to show how long ago); otherwise skipped.
+export function endRest(draft, natural = false) {
+  draft.restEndedAt = natural && draft.rest ? draft.rest.endsAt : null;
   draft.rest = null;
+}
+
+export function startWarmup(draft, nowMs) {
+  draft.warmup = { endsAt: nowMs + WARMUP_SEC * 1000 };
+}
+
+export function endWarmup(draft) {
+  draft.warmup = { done: true };
 }
 
 export function remainingSec(endsAt, nowMs) {

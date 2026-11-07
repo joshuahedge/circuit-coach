@@ -1,6 +1,7 @@
 // Log hub: start a session or a log, and recent activity with details, edit and delete.
 import { h, ICONS, topbar } from './dom.js';
-import { openSheet, confirmSheet } from './sheet.js';
+import { openSheet } from './sheet.js';
+import { canEditLog, reopenSession } from './sessionSummary.js';
 import { currentPlan, estimateMinutes } from '../plan.js';
 import { DAY_NAMES, formatDay, formatShort } from '../dates.js';
 import { formatDuration, formatPace, paceSecPerKm } from '../pace.js';
@@ -52,6 +53,27 @@ export function logView(app) {
         : h('p', { class: 'muted' }, 'Nothing logged yet.')));
 }
 
+// Delete straight away and offer Undo: quicker than "are you sure?", and a mis-tap costs nothing.
+export function deleteWithUndo(app, kind, id, message) {
+  const key = COLLECTION[kind];
+  const index = app.state[key].findIndex((x) => x.id === id);
+  if (index < 0) return;
+  const item = app.state[key][index];
+  app.update((s) => ({ ...s, [key]: s[key].filter((x) => x.id !== id) }));
+  app.toast(message, {
+    ms: 6000,
+    action: {
+      label: 'Undo',
+      run: () => app.update((s) => {
+        if (s[key].some((x) => x.id === id)) return s;
+        const list = [...s[key]];
+        list.splice(Math.min(index, list.length), 0, item);
+        return { ...s, [key]: list };
+      }, 'Restored'),
+    },
+  });
+}
+
 function line(label, value) {
   return value === null || value === undefined || value === '' ? null
     : h('div', { class: 'rx-line' }, h('span', { class: 'muted' }, label), h('span', { class: 'strong' }, String(value)));
@@ -97,14 +119,17 @@ export function showLogDetail(app, kind, id) {
         line('10K', item.tenKSec ? formatDuration(item.tenKSec) : null),
         item.notes ? h('p', { class: 'small muted' }, item.notes) : null));
     }
-    const remove = async () => {
+    const remove = () => {
       close();
-      const ok = await confirmSheet(app, { title: 'Delete this entry?', text: `${titles[kind]} on ${formatShort(item.date)} will be removed. This can't be undone.`, confirmLabel: 'Delete', danger: true });
-      if (ok) app.update((s) => ({ ...s, [COLLECTION[kind]]: s[COLLECTION[kind]].filter((x) => x.id !== id) }), 'Deleted');
+      deleteWithUndo(app, kind, id, `${titles[kind]} on ${formatShort(item.date)} deleted.`);
     };
+    const edit = kind === 'strength'
+      ? (canEditLog(app, item) ? () => { close(); reopenSession(app, id); } : null)
+      : () => { close(); app.go(`#/log/${kind}/${encodeURIComponent(id)}`); };
     body.push(h('div', { class: 'btn-row' },
-      kind !== 'strength' ? h('button', { class: 'btn', type: 'button', onclick: () => { close(); app.go(`#/log/${kind}/${encodeURIComponent(id)}`); } }, 'Edit') : null,
+      edit ? h('button', { class: 'btn', type: 'button', onclick: edit }, 'Edit') : null,
       h('button', { class: 'btn danger', type: 'button', onclick: remove }, 'Delete')));
+    if (kind === 'strength' && !edit) body.push(h('p', { class: 'tiny muted' }, 'Sessions can be edited for 48 hours after saving.'));
     return h('div', null, body);
   });
 }

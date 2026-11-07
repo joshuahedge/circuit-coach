@@ -29,6 +29,26 @@ function howTo(exerciseId) {
     h('ol', null, ex.howTo.map((t) => h('li', null, t))));
 }
 
+// Start a session straight away (the Week screen's button). The lighter run-protect version is on when it
+// applies; the switch stays on the workout screen.
+export function startSession(app, sessionId) {
+  const d = app.state.draft;
+  if (!d) {
+    const prot = protectionFor(app, sessionId, app.today());
+    app.save((x) => ({ ...x, draft: createDraft(x, sessionId, app.today(), { runProtect: prot.applies, nowIso: app.now().toISOString() }) }));
+  }
+  app.go(`#/log/strength/${sessionId}`);
+  if (app.route.name === 'strength') app.render();
+}
+
+function coachBanner(app, sessionId) {
+  const mine = coachReview(app.state, app.today()).suggestions.filter((s) => s.sessionId === sessionId);
+  if (!mine.length) return null;
+  return h('button', { class: 'banner run banner-link', type: 'button', onclick: () => app.go('#/coach') },
+    h('b', null, `Coach suggests ${mine.length === 1 ? 'a change' : `${mine.length} changes`} for this session: `),
+    mine.map((s) => s.title).join('; '), '. Review before you start.');
+}
+
 function preview(app, sessionId) {
   const s = app.state;
   const today = app.today();
@@ -51,6 +71,7 @@ function preview(app, sessionId) {
     topbar(`Session ${sessionId}`, { sub: session.focus, back: () => app.go('#/log') }),
     h('div', { class: 'content' },
       h('p', { class: 'muted' }, `About ${estimateMinutes(session)} min including warm-up and cool-down.`),
+      coachBanner(app, sessionId),
       prot.applies ? h('div', { class: 'banner run' },
         h('div', { class: 'switch-row' },
           h('span', null, h('b', null, `Long run on ${prot.longDayName}. `), 'Use the lighter version: 2 sets of the single-leg leg work, nothing close to failure.'),
@@ -59,7 +80,8 @@ function preview(app, sessionId) {
       h('div', { class: 'card' }, h('h3', null, 'Warm-up · 5 min'), h('p', { class: 'small' }, WARMUPS[sessionId])),
       list,
       h('p', { class: 'small muted' }, REST_NOTE),
-      h('button', { class: 'btn strength block', type: 'button', onclick: start }, `Start Session ${sessionId}`)));
+      h('div', { class: 'sticky-action' },
+        h('button', { class: 'btn strength block', type: 'button', onclick: start }, `Start Session ${sessionId}`))));
 }
 
 function conflict(app, sessionId) {
@@ -82,46 +104,50 @@ function conflict(app, sessionId) {
 }
 
 function setRow(app, e, row, ref, isNext) {
-  const unitStep = e.target.unit === 'seconds' ? 5 : 1;
-  const el = h('div', { class: `setrow${row.done ? ' is-done' : ''}${isNext ? ' is-next' : ''}`, dataset: { ref: `${ref.ei}:${ref.ri}` } });
-  const label = h('div', { class: 'lbl' }, `Set ${row.set}`, row.side ? h('small', null, SIDE_LABEL[row.side] || row.side) : null);
+  const isSec = e.target.unit === 'seconds';
+  const unit = isSec ? ' s' : row.value === 1 ? ' rep' : ' reps';
+  const sideName = row.side ? SIDE_LABEL[row.side] || row.side : '';
+  const name = `${e.variation}, set ${row.set}${sideName ? ` ${sideName}` : ''}`;
+  const key = `${ref.ei}:${ref.ri}`;
+  const editing = Boolean(app.editRows && app.editRows.has(key));
+  const el = h('div', { class: `setrow${row.done ? ' is-done' : ''}${isNext ? ' is-next' : ''}`, dataset: { ref: key } });
+  const label = h('div', { class: 'lbl' }, `Set ${row.set}`, sideName ? h('small', null, sideName) : null);
+
+  // A ticked set collapses to its result; Edit opens it again (no accidental un-tick).
+  if (row.done && !editing) {
+    el.append(label,
+      h('div', { class: 'done-val' }, h('span', { class: 'ok', 'aria-hidden': 'true', html: ICONS.check }), `${row.value}${unit}`,
+        row.rir !== null && row.rir !== undefined ? h('span', { class: 'muted' }, ` · RIR ${row.rir === 4 ? '4+' : row.rir}`) : null),
+      h('button', { class: 'btn small', type: 'button', 'aria-label': `Edit ${name}`, onclick: () => { (app.editRows = app.editRows || new Set()).add(key); app.render(); } }, 'Edit'));
+    return el;
+  }
   const step = stepper({
-    value: row.value, min: 0, max: e.target.unit === 'seconds' ? 600 : 200, step: unitStep,
-    label: `Set ${row.set}${row.side ? ` ${SIDE_LABEL[row.side]}` : ''} ${e.target.unit}`,
+    value: row.value, min: 0, max: isSec ? 600 : 200, step: isSec ? 5 : 1, label: name,
     onChange: (v) => { row.value = v; app.save(); },
   });
-  const rir = h('select', { 'aria-label': `Reps in reserve, set ${row.set}${row.side ? ` ${SIDE_LABEL[row.side]}` : ''}` },
-    h('option', { value: '' }, '–'),
-    [0, 1, 2, 3, 4, 5].map((n) => h('option', { value: String(n) }, String(n))));
-  rir.value = row.rir === null || row.rir === undefined ? '' : String(row.rir);
-  rir.addEventListener('change', () => { row.rir = rir.value === '' ? null : Number(rir.value); app.save(); });
-  const tick = h('button', { type: 'button', class: 'tick', 'aria-pressed': String(row.done), 'aria-label': `Set ${row.set}${row.side ? ` ${SIDE_LABEL[row.side]}` : ''} done`, html: ICONS.check });
+  if (row.done) {
+    el.append(label, step,
+      h('button', { class: 'btn small primary', type: 'button', 'aria-label': `Save ${name}`, onclick: () => { app.editRows.delete(key); app.render(); } }, 'OK'),
+      h('button', { class: 'link small undo-set', type: 'button', onclick: () => { row.done = false; app.editRows.delete(key); app.save(); app.render(); } }, 'Mark not done'));
+    return el;
+  }
+  const tick = h('button', { type: 'button', class: 'tick', 'aria-pressed': 'false', 'aria-label': `Done: ${name}`, html: ICONS.check });
   tick.addEventListener('click', () => {
-    const d = app.state.draft;
-    if (row.done) row.done = false;
-    else {
-      unlockSound(app.win);
-      const cfg = timerSettings(app);
-      completeSet(d, ref, { flow: cfg.flow, rest: cfg.rest, nowMs: app.now().getTime() });
-    }
+    unlockSound(app.win);
+    const cfg = timerSettings(app);
+    completeSet(app.state.draft, ref, { flow: cfg.flow, rest: cfg.rest, nowMs: app.now().getTime() });
     app.save();
     app.render();
   });
-  el.append(label, step, rir, tick);
+  el.append(label, step, tick);
   return el;
 }
 
-function exerciseCard(app, e, ei, next) {
+function exerciseMenu(app, e) {
   const ex = EXERCISES[e.exerciseId];
   const t = e.target;
-  const card = h('section', { class: `ex-card${next && next.ei === ei ? ' is-current' : ''}`, 'aria-label': e.variation });
-  const bySet = {};
-  e.rows.forEach((r, ri) => (bySet[r.set] = bySet[r.set] || []).push({ r, ri }));
-  const skipped = e.status === 'skipped';
-  card.classList.toggle('skipped', skipped);
-
-  const swapSheet = () => openSheet(app, `Swap ${ex.name}`, (close) => {
-    const pick = (name) => {
+  openSheet(app, e.variation, (close) => {
+    const swapTo = (name) => {
       e.variation = name;
       e.status = name === t.variation ? 'pending' : 'modified';
       e.reason = name === t.variation ? '' : `Swapped for ${name}`;
@@ -131,50 +157,52 @@ function exerciseCard(app, e, ei, next) {
     };
     const options = [...new Set([t.variation, ...ex.ladder.map((l) => l.name), ...ex.swaps.map((s) => s.name)])];
     return h('div', null,
-      h('p', { class: 'small muted' }, 'Just for today. A swapped exercise is logged but does not count towards progress. Change the plan from the Plan tab.'),
+      h('div', { class: 'section-title' }, 'Swap for today'),
+      h('p', { class: 'small muted' }, 'A swapped exercise is logged but does not count towards progress. Change the plan itself from the Plan tab.'),
       h('div', { class: 'list' }, options.map((name) => {
         const swap = ex.swaps.find((s) => s.name === name);
-        return h('button', { class: 'list-item', type: 'button', onclick: () => pick(name) },
+        return h('button', { class: 'list-item', type: 'button', onclick: () => swapTo(name) },
           h('span', { class: 'grow' }, h('b', null, name, name === t.variation ? ' (planned)' : ''), swap ? h('div', { class: 'small muted' }, swap.note) : null),
           name === e.variation ? h('span', { html: ICONS.check }) : null);
-      })));
+      })),
+      h('div', { class: 'section-title' }, 'Skip it today'),
+      h('div', { class: 'chips' }, SKIP_REASONS.map((r) => h('button', {
+        class: 'chip', type: 'button',
+        onclick: () => { e.status = 'skipped'; e.reason = r; app.save(); close(); app.render(); },
+      }, r))));
   });
+}
 
-  const skipSheet = () => openSheet(app, `Skip ${e.variation}?`, (close) => h('div', null,
-    h('div', { class: 'chips' }, SKIP_REASONS.map((r) => h('button', {
-      class: 'chip', type: 'button',
-      onclick: () => { e.status = 'skipped'; e.reason = r; app.save(); close(); app.render(); },
-    }, r)))));
-
+function exerciseCard(app, e, ei, next) {
+  const ex = EXERCISES[e.exerciseId];
+  const t = e.target;
+  const skipped = e.status === 'skipped';
+  const card = h('section', { class: `ex-card${next && next.ei === ei ? ' is-current' : ''}${skipped ? ' skipped' : ''}`, 'aria-label': e.variation });
+  const bySet = {};
+  e.rows.forEach((r, ri) => (bySet[r.set] = bySet[r.set] || []).push({ r, ri }));
+  const pain = h('button', {
+    class: 'chip pain-chip', type: 'button', 'aria-pressed': String(e.pain), 'aria-label': `Pain in ${e.variation}`,
+    onclick: () => {
+      e.pain = !e.pain;
+      pain.setAttribute('aria-pressed', String(e.pain));
+      app.save();
+      if (e.pain) app.toast('Pain noted. Stop if it is sharp or getting worse.', { ms: 4000 });
+    },
+  }, 'Pain');
   append(card, [
     h('div', { class: 'ex-head' },
-      h('h3', null, e.variation, e.status === 'modified' ? h('span', { class: 'tag warn', style: { marginLeft: '8px' } }, 'swapped') : null),
+      h('div', { class: 'ex-title' },
+        h('h3', null, e.variation, e.status === 'modified' ? h('span', { class: 'tag warn', style: { marginLeft: '8px' } }, 'swapped') : null),
+        skipped ? null : pain,
+        h('button', { class: 'more', type: 'button', 'aria-label': `More for ${e.variation}: swap or skip`, onclick: () => exerciseMenu(app, e) }, '⋯')),
       h('div', { class: 'rx' }, [prescriptionLabel(t), tempoLabel(t)].filter(Boolean).join(' · ')),
       h('div', { class: 'cue' }, ex.cues)),
     howTo(e.exerciseId),
     skipped
-      ? h('div', { class: 'ex-head' }, h('p', { class: 'small muted' }, `Skipped: ${e.reason}`))
-      : [
-        h('div', { class: 'setrow head', 'aria-hidden': 'true', style: { margin: '0 12px' } },
-          h('span'), h('span', null, t.unit === 'seconds' ? 'Seconds' : 'Reps'), h('span', null, 'RIR'), h('span', null, 'Done')),
-        Object.keys(bySet).map((n) => h('div', { class: 'setgroup' }, bySet[n].map(({ r, ri }) => setRow(app, e, r, { ei, ri }, Boolean(next && next.ei === ei && next.ri === ri))))),
-      ],
-    h('div', { class: 'ex-actions' },
-      skipped
-        ? h('button', { class: 'btn', type: 'button', onclick: () => { e.status = 'pending'; e.reason = ''; app.save(); app.render(); } }, 'Undo skip')
-        : [
-          h('button', {
-            class: 'btn', type: 'button', 'aria-pressed': String(e.pain),
-            onclick: (ev) => {
-              e.pain = !e.pain;
-              ev.currentTarget.setAttribute('aria-pressed', String(e.pain));
-              app.save();
-              if (e.pain) app.toast('Pain noted. Stop if it is sharp or getting worse.', { ms: 4000 });
-            },
-          }, 'Pain'),
-          h('button', { class: 'btn', type: 'button', onclick: swapSheet }, 'Swap'),
-          h('button', { class: 'btn', type: 'button', onclick: skipSheet }, 'Skip'),
-        ])]);
+      ? h('div', { class: 'ex-head' }, h('p', { class: 'small muted' }, `Skipped: ${e.reason}`),
+        h('button', { class: 'btn small', type: 'button', onclick: () => { e.status = 'pending'; e.reason = ''; app.save(); app.render(); } }, 'Undo skip'))
+      : Object.keys(bySet).map((n) => h('div', { class: 'setgroup' }, bySet[n].map(({ r, ri }) => setRow(app, e, r, { ei, ri }, Boolean(next && next.ei === ei && next.ri === ri))))),
+    h('div', { style: { height: '8px' } })]);
   if (!skipped && e.rows.length && e.rows.every((r) => r.done)) card.classList.add('done-all');
   return card;
 }
@@ -206,16 +234,19 @@ function finishSheet(app, sessionId) {
       const today = app.today();
       const before = new Set(coachReview(app.state, today).suggestions.map((x) => x.key));
       const log = finishDraft(d, { nowMs: app.now().getTime(), id: newId('str') });
-      app.save((x) => ({ ...x, strengthLogs: [...x.strengthLogs, log], draft: null }));
-      const fresh = coachReview(app.state, today).suggestions.filter((x) => !before.has(x.key)).length;
-      app.go('#/week');
-      app.toast(`Session ${sessionId} saved.${fresh ? ` ${fresh} new coach suggestion${fresh > 1 ? 's' : ''}.` : ''}`,
-        fresh ? { action: { label: 'View', run: () => app.go('#/coach') } } : undefined);
+      app.save((x) => ({ ...x, strengthLogs: [...x.strengthLogs.filter((l) => l.id !== log.id), log], draft: null }));
+      app.freshSuggestions = coachReview(app.state, today).suggestions.filter((x) => !before.has(x.key)).map((x) => x.key);
+      app.editRows = null;
+      app.lastNextRef = null;
+      close();
+      app.go(`#/log/summary/${encodeURIComponent(log.id)}`);
     };
     const discard = async () => {
       close();
-      const ok = await confirmSheet(app, { title: 'Discard this session?', text: 'Everything you ticked in it will be lost.', confirmLabel: 'Discard', danger: true });
-      if (ok) { app.save((x) => ({ ...x, draft: null })); app.go('#/log'); }
+      const ok = await confirmSheet(app, d.editingId
+        ? { title: 'Discard your changes?', text: 'The saved session stays as it was.', confirmLabel: 'Discard changes', danger: true }
+        : { title: 'Discard this session?', text: 'Everything you ticked in it will be lost.', confirmLabel: 'Discard', danger: true });
+      if (ok) { app.save((x) => ({ ...x, draft: null })); app.editRows = null; app.go('#/log'); }
     };
     return h('div', null,
       h('p', { class: 'muted' }, `${p.done} of ${p.total} sets · ${elapsed} min`),
@@ -238,7 +269,9 @@ function logger(app, sessionId) {
   const next = upNext(d, cfg.flow);
   const p = draftProgress(d);
   const timer = h('span', { class: 'timer' });
-  const tickTimer = () => { timer.textContent = `${elapsedMinutes(d, app.now().getTime())} min`; };
+  const tickTimer = () => {
+    timer.textContent = d.editingId ? `${d.durationMin ?? '–'} min` : `${elapsedMinutes(d, app.now().getTime())} min`;
+  };
   tickTimer();
   const interval = setInterval(tickTimer, 20000);
   app.onLeave(() => clearInterval(interval));
@@ -246,7 +279,7 @@ function logger(app, sessionId) {
   const onFinish = () => finishSheet(app, sessionId);
 
   const view = h('div', null,
-    topbar(`Session ${sessionId}`, {
+    topbar(`Session ${sessionId}${d.editingId ? ' (editing)' : ''}`, {
       sub: h('span', null, timer, ` · ${p.done} of ${p.total} sets`),
       back: () => app.go('#/log'),
       right: h('button', { class: 'btn small', type: 'button', onclick: onFinish }, 'Finish'),
@@ -258,6 +291,8 @@ function logger(app, sessionId) {
           h('span', null, h('b', null, `Long run on ${prot.longDayName}. `), 'Lighter version on.'),
           toggle({ checked: d.runProtect, label: 'Use the lighter version', onChange: (on) => { app.state.draft = setRunProtect(d, app.state, on); app.save(); app.render(); } }))) : null,
       !prot.longRunSoon && prot.qualityTomorrow ? h('div', { class: 'banner run' }, `Quality run on ${prot.qualityDayName}: keep leg sets 2–3 reps short of failure.`) : null,
+      d.editingId ? h('div', { class: 'banner warn' }, `Editing the session from ${formatDay(d.date)}. Save it again from Finish.`) : null,
+      p.done === 0 && !d.editingId ? coachBanner(app, sessionId) : null,
       d.energyBefore === null || p.done === 0 ? h('div', { class: 'card' },
         h('h3', null, 'Energy before you start'),
         scaleChips({ min: 1, max: 5, value: d.energyBefore, label: 'Energy before', lowLabel: 'Drained', highLabel: 'Great', onChange: (v) => { d.energyBefore = v; app.save(); } })) : null,
@@ -268,7 +303,7 @@ function logger(app, sessionId) {
       d.exercises.map((e, ei) => exerciseCard(app, e, ei, next)),
       h('details', { class: 'explain' }, h('summary', null, 'Cool-down · 4–5 min'), h('div', null, COOLDOWN)),
       h('button', { class: 'btn strength block', type: 'button', onclick: onFinish }, 'Finish session')),
-    workoutDock(app, d, { onFinish }));
+    workoutDock(app, d, { onFinish, warmupText: WARMUPS[sessionId] }));
 
   // Keep the set the dock is offering in view, without fighting the user's own scrolling.
   if (next && app.lastNextRef !== `${next.ei}:${next.ri}`) {

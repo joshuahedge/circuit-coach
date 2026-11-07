@@ -103,13 +103,21 @@ describe('ui: logging', () => {
     app.go('#/log/strength/A');
     click(root, 'Start Session A');
     expect(app.state.draft.sessionId).toBe('A');
+    click(root, 'More: Press-up, set 1');
+    expect(app.state.draft.exercises[1].rows[0].value).toBe(9);
     const ticks = [...root.querySelectorAll('.tick')];
     expect(ticks.length).toBe(25);
     ticks.forEach((t) => t.click());
     expect(app.state.draft.exercises[0].rows.every((r) => r.done)).toBe(true);
-    const more = btn(root, 'More: Set 1 reps');
-    more.click();
-    expect(app.state.draft.exercises[1].rows[0].value).toBe(9);
+    expect(root.querySelectorAll('.tick').length).toBe(0);
+    click(root, 'Edit Press-up, set 1');
+    click(root, 'Less: Press-up, set 1');
+    click(root, 'Save Press-up, set 1');
+    expect(app.state.draft.exercises[1].rows[0].value).toBe(8);
+    expect(app.state.draft.exercises[1].rows[0].done).toBe(true);
+    click(root, 'Edit Press-up, set 1');
+    click(root, 'More: Press-up, set 1');
+    click(root, 'Save Press-up, set 1');
     expect(root.querySelector('.dock').textContent).toContain('Every set done');
     expect(root.querySelector('.tabbar')).toBe(null);
     click(root, 'Finish');
@@ -132,7 +140,12 @@ describe('ui: logging', () => {
     app.go('#/log/strength/A');
     click(root, 'Start Session A');
     const dock = () => root.querySelector('.dock');
+    expect(dock().textContent).toContain('Warm-up');
+    click(dock(), 'Start warm-up timer');
+    expect(app.state.draft.warmup.endsAt).toBeGreaterThan(0);
+    click(dock(), 'Warmed up: first set');
     expect(dock().textContent).toContain('Reverse lunge');
+    expect(dock().textContent).toContain('8–10 reps per leg · 2 s down');
     expect(dock().textContent).toContain('Set 1 of 3 · Left');
     click(dock(), 'Done');
     expect(app.state.draft.rest).toBe(null);
@@ -162,6 +175,7 @@ describe('ui: logging', () => {
     expect(app.state.settings.flow).toBe('sets');
     expect(app.state.settings.restLong).toBe(90);
     const dock = () => root.querySelector('.dock');
+    click(dock(), 'Skip');
     click(dock(), 'Done');
     click(dock(), 'Done');
     expect(app.state.draft.rest.total).toBe(90);
@@ -207,17 +221,41 @@ describe('ui: logging', () => {
     expect(app.state.checkins[0].date).toBe('2026-11-04');
   });
 
-  it('deletes a log after confirming', async () => {
+  it('deletes a log with Undo', () => {
     const s = setupState();
     addRun(s, '2026-11-02', { km: 5 });
     const { app, root } = mount(s, '2026-11-04');
     app.go('#/log');
     all(root, '.list-item').find((b) => b.textContent.includes('Easy run')).click();
     click(root, 'Delete');
-    await tick();
-    root.querySelector('[data-confirm]').click();
-    await tick();
     expect(app.state.runLogs.length).toBe(0);
+    click(root.querySelector('.toast'), 'Undo');
+    expect(app.state.runLogs.length).toBe(1);
+  });
+
+  it('a saved session shows a summary and can be edited', () => {
+    const s = setupState();
+    addLog(s, 'A', '2026-11-03', { ex: { 'press-up': { value: 9 } } });
+    const { app, root } = mount(s, '2026-11-05');
+    app.go('#/log/strength/A');
+    click(root, 'Start Session A');
+    [...root.querySelectorAll('.tick')].forEach((t) => t.click());
+    click(root, 'Finish');
+    [...root.querySelectorAll('[aria-label="Session effort"] .chip')].find((b) => b.textContent === '6').click();
+    click(root, 'Save session');
+    expect(app.route.name).toBe('summary');
+    expect(root.textContent).toContain('Compared with 3 Nov');
+    expect(root.textContent).toContain('same as last time');
+    const id = app.route.id;
+    click(root, 'Edit session');
+    expect(app.state.draft.editingId).toBe(id);
+    click(root, 'Edit Press-up, set 1');
+    click(root, 'More: Press-up, set 1');
+    click(root, 'Save Press-up, set 1');
+    click(root, 'Finish');
+    click(root, 'Save session');
+    expect(app.state.strengthLogs.length).toBe(2);
+    expect(app.state.strengthLogs.find((l) => l.id === id).exercises[1].sets[0].value).toBe(10);
   });
 });
 
@@ -303,17 +341,15 @@ describe('ui: coach and plan', () => {
     expect(app.restore('nope').ok).toBe(false);
   });
 
-  it('deleting a run from its edit screen asks first', async () => {
+  it('deleting a run from its edit screen can be undone', () => {
     const s = setupState();
     const run = addRun(s, '2026-11-02', { km: 5 });
     const { app, root } = mount(s, '2026-11-04');
     app.go(`#/log/run/${run.id}`);
     click(root, 'Delete');
-    await tick();
-    expect(app.state.runLogs.length).toBe(1);
-    root.querySelector('[data-confirm]').click();
-    await tick();
     expect(app.state.runLogs.length).toBe(0);
+    click(root.querySelector('.toast'), 'Undo');
+    expect(app.state.runLogs[0].id).toBe(run.id);
   });
 
   it('the block review cannot be dismissed, only acted on', async () => {

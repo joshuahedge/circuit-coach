@@ -99,7 +99,8 @@ describe('timer: hold', () => {
     expect(d.exercises[4].rows[0].value).toBe(31);
     expect(d.exercises[4].rows[0].done).toBe(true);
     expect(d.hold).toBe(null);
-    expect(rest).toBe(null); // the other side comes next
+    expect(rest.kind).toBe('switch'); // the other side comes next: a few seconds to get into position
+    expect(rest.total).toBe(5);
   });
 
   it('stopping during the lead-in logs nothing', () => {

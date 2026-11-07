@@ -15,6 +15,17 @@ export function unlockSound(win) {
   } catch (e) { /* no audio */ }
 }
 
+// iOS 17+ Audio Session API: 'playback' plays through the silent switch (and may pause music); 'auto'
+// follows the switch. Unverified on a device; the setting is off by default.
+export function applyAudioSession(app) {
+  try {
+    const as = app.win.navigator && app.win.navigator.audioSession;
+    if (!as) return;
+    const want = app.state && app.state.settings && app.state.settings.soundThroughSilent ? 'playback' : 'auto';
+    if (as.type !== want) as.type = want;
+  } catch (e) { /* ignore */ }
+}
+
 function tone(freq, start, dur, gain = 0.2) {
   const o = ctx.createOscillator();
   const g = ctx.createGain();

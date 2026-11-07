@@ -1,6 +1,7 @@
 // Run log, morning check-in and benchmark test forms.
 import { h, topbar, chips, scaleChips, field, group, numberInput } from './dom.js';
 import { confirmSheet } from './sheet.js';
+import { deleteWithUndo } from './log.js';
 import { dayKey, formatShort, isISODate } from '../dates.js';
 import { formatDuration, formatPace, paceSecPerKm } from '../pace.js';
 
@@ -78,15 +79,9 @@ export function runView(app) {
     app.go('#/week');
     app.toast(`Run saved · ${formatPace(paceSecPerKm(run.distanceKm, run.durationSec))}`);
   };
-  const del = existing ? async () => {
-    const ok = await confirmSheet(app, {
-      title: 'Delete this run?', text: `${formatShort(existing.date)}, ${Number(existing.distanceKm).toFixed(1)} km. This can't be undone.`,
-      confirmLabel: 'Delete', danger: true,
-    });
-    if (!ok) return;
-    app.save((s) => ({ ...s, runLogs: s.runLogs.filter((r) => r.id !== existing.id) }));
+  const del = existing ? () => {
     app.go('#/log');
-    app.toast('Run deleted');
+    deleteWithUndo(app, 'run', existing.id, `Run on ${formatShort(existing.date)} deleted.`);
   } : null;
 
   const view = h('div', null,

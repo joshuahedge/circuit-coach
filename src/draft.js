@@ -33,8 +33,11 @@ function buildRows(p, last, keep = []) {
       const kept = keep.find((r) => r.set === set && r.side === side);
       if (kept) { rows.push(kept); continue; }
       const prevRow = [...keep, ...rows].filter((r) => r.side === side).pop();
-      const value = last.get(`${set}:${side}`) ?? last.get(`any:${side}`) ?? (prevRow ? prevRow.value : p.min);
-      rows.push({ set, side, value, rir: null, done: false });
+      const lastVal = last.get(`${set}:${side}`) ?? last.get(`any:${side}`) ?? (prevRow ? prevRow.last : null) ?? null;
+      // Reps start at last time's number or the bottom of the range, whichever is higher, so a tick without
+      // adjusting never feeds the coach a below-target set. Holds start at the bottom: the timer fills them.
+      const value = p.unit === 'seconds' ? p.min : Math.max(lastVal ?? p.min, p.min);
+      rows.push({ set, side, value, last: lastVal, rir: null, done: false });
     }
   }
   return rows;
@@ -43,13 +46,14 @@ function buildRows(p, last, keep = []) {
 export function createDraft(state, sessionId, today, { runProtect = false, nowIso = new Date().toISOString() } = {}) {
   const plan = currentPlan(state);
   const session = sessionForToday(plan.sessions[sessionId], { runProtect });
+  const checkin = state.checkins.find((c) => c.date === today);
   return {
     sessionId,
     date: today,
     startedAt: nowIso,
     planVersion: plan.version,
     runProtect,
-    energyBefore: null,
+    energyBefore: checkin && typeof checkin.energy === 'number' ? checkin.energy : null,
     rpe: null,
     pain: '',
     notes: '',
@@ -63,6 +67,41 @@ export function createDraft(state, sessionId, today, { runProtect = false, nowIs
       pain: false,
       rows: buildRows(p, lastValues(state, sessionId, p)),
     })),
+  };
+}
+
+// Reopen a saved session for editing. Saving replaces the log; discarding leaves it untouched.
+export function draftFromLog(log) {
+  return {
+    sessionId: log.sessionId,
+    date: log.date,
+    startedAt: log.createdAt,
+    planVersion: log.planVersion,
+    runProtect: Boolean(log.runProtect),
+    energyBefore: log.energyBefore ?? null,
+    rpe: log.rpe ?? null,
+    pain: log.pain || '',
+    notes: log.notes || '',
+    durationMin: log.durationMin ?? null,
+    editingId: log.id,
+    editingCreatedAt: log.createdAt,
+    warmup: { done: true },
+    exercises: log.exercises.map((e) => {
+      const t = e.target;
+      const rows = [];
+      for (let set = 1; set <= t.sets; set++) {
+        for (const side of t.sides || [null]) {
+          const saved = e.sets.find((s) => (s.set || 0) === set && s.side === side);
+          rows.push(saved
+            ? { set, side, value: saved.value, last: null, rir: saved.rir ?? null, done: true }
+            : { set, side, value: t.min, last: null, rir: null, done: false });
+        }
+      }
+      return {
+        exerciseId: e.exerciseId, variation: e.variation, target: t,
+        status: e.status === 'done' ? 'pending' : e.status, reason: e.status === 'done' ? '' : e.reason, pain: Boolean(e.pain), rows,
+      };
+    }),
   };
 }
 
@@ -90,11 +129,11 @@ export function elapsedMinutes(draft, nowMs) {
 export function finishDraft(draft, { nowMs = Date.now(), id }) {
   const durationMin = draft.durationMin ?? Math.min(elapsedMinutes(draft, nowMs), 999);
   return {
-    id,
+    id: draft.editingId || id,
     date: draft.date,
     sessionId: draft.sessionId,
     planVersion: draft.planVersion,
-    createdAt: new Date(nowMs).toISOString(),
+    createdAt: draft.editingCreatedAt || new Date(nowMs).toISOString(),
     durationMin,
     runProtect: draft.runProtect,
     rpe: draft.rpe,

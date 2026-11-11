@@ -6,7 +6,7 @@ import { howToFor } from '../routines.js';
 import { openSheet, confirmSheet } from './sheet.js';
 import { openRxEditor, copySummary } from './coach.js';
 import { exerciseById, EXERCISES, WARMUPS, COOLDOWN, REST_NOTE, LIMITATION_NOTE, SAFETY_NOTE } from '../library.js';
-import { currentPlan, estimateMinutes, prescriptionLabel, tempoLabel, withPrescription, sidesFor, targetMinutes } from '../plan.js';
+import { currentPlan, estimateMinutes, prescriptionLabel, sessionIds, tempoLabel, withPrescription, sidesFor, targetMinutes } from '../plan.js';
 import { scheduleWarnings } from '../schedule.js';
 import { DAY_KEYS, DAY_SHORT, formatShort } from '../dates.js';
 import { emptyState, makeBackup, readBackup } from '../store.js';
@@ -53,22 +53,46 @@ function sessionCard(app, plan, id) {
   const s = plan.sessions[id];
   return h('div', null,
     h('div', { class: 'section-title' }, `Session ${id} · about ${estimateMinutes(s)} min · target ${targetMinutes(s)}`),
-    h('div', { class: 'card accent-strength tight' }, h('b', null, s.focus), h('p', { class: 'small muted' }, `Warm-up: ${WARMUPS[id]}`)),
+    h('div', { class: 'card accent-strength tight' }, h('b', null, s.focus), h('p', { class: 'small muted' }, `Warm-up: ${WARMUPS[id] || WARMUPS.C}`)),
     h('div', { class: 'list' }, s.exercises.map((p) => h('button', { class: 'list-item', type: 'button', onclick: () => exerciseSheet(app, id, p) },
       h('span', { class: 'grow' }, h('b', null, p.variation),
         h('div', { class: 'small muted' }, [prescriptionLabel(p), tempoLabel(p)].filter(Boolean).join(' · '))),
       h('span', { class: 'chev', html: ICONS.chev })))),
-    h('button', { class: 'btn block', type: 'button', onclick: () => app.go(`#/plan/edit/${id}`) }, `Edit Session ${id}`));
+    h('button', { class: 'btn block', type: 'button', onclick: () => app.go(`#/plan/edit/${id}`) }, `Edit Session ${id}`),
+    id === 'A' || id === 'B' ? null : h('button', { class: 'btn ghost block', type: 'button', style: { marginTop: '8px' }, onclick: () => removeSession(app, id) }, `Remove Session ${id}`));
+}
+
+// Session C can go again: a new plan version without it, and its training day freed (Undo restores both).
+async function removeSession(app, id) {
+  const d = app.state.draft;
+  if (d && d.sessionId === id) { app.toast(`Finish or discard your Session ${id} workout first.`); return; }
+  const ok = await confirmSheet(app, {
+    title: `Remove Session ${id}?`, text: 'Your logged workouts stay in Progress. You can add a third session again at a later block review.',
+    confirmLabel: 'Remove', danger: true,
+  });
+  if (!ok) return;
+  const before = app.state;
+  const today = app.today();
+  app.update((x) => {
+    const plan = currentPlan(x);
+    const sessions = { ...plan.sessions };
+    delete sessions[id];
+    const strengthDays = Object.fromEntries(Object.entries(x.schedule.strengthDays).filter(([, v]) => v !== id));
+    const version = { version: plan.version + 1, effectiveFrom: today, createdAt: today, acceptedByUser: true, sessions, reason: `You removed Session ${id}` };
+    return { ...x, plans: [...x.plans, version], schedule: { ...x.schedule, strengthDays } };
+  });
+  app.toast(`Session ${id} removed`, { action: { label: 'Undo', run: () => app.update(() => before, `Session ${id} is back`) }, ms: 6000 });
 }
 
 function scheduleSheet(app) {
   let days = { ...app.state.schedule.strengthDays };
+  const ids = sessionIds(currentPlan(app.state));
   openSheet(app, 'Your training days', (close) => {
     const body = h('div');
     const draw = () => {
-      const valid = Boolean(dayOf(days, 'A') && dayOf(days, 'B'));
+      const valid = ids.every((id) => dayOf(days, id));
       fill(body,
-        sessionDayPickers(days, (id, d) => { days = withSessionDay(days, id, d); draw(); }),
+        sessionDayPickers(days, (id, d) => { days = withSessionDay(days, id, d); draw(); }, ids),
         scheduleWarnings({ strengthDays: days }).map((x) => h('div', { class: 'banner warn' }, x.text)),
         h('div', { class: 'btn-row' },
           h('button', { class: 'btn', type: 'button', onclick: close }, 'Cancel'),
@@ -173,8 +197,7 @@ export function planView(app) {
   return h('div', null,
     topbar('Plan', { sub: `Version ${plan.version} · from ${formatShort(plan.effectiveFrom)}` }),
     h('div', { class: 'content' },
-      sessionCard(app, plan, 'A'),
-      sessionCard(app, plan, 'B'),
+      sessionIds(plan).map((id) => sessionCard(app, plan, id)),
       h('div', { class: 'card info' },
         h('p', { class: 'small' }, h('b', null, 'Rest. '), REST_NOTE),
         h('p', { class: 'small' }, h('b', null, 'Cool-down. '), COOLDOWN),

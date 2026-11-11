@@ -2,10 +2,16 @@
 // Functions here never mutate their inputs.
 import { exerciseById } from './library.js';
 
-const SESSION_INFO = {
+export const SESSION_INFO = {
   A: { name: 'Session A', focus: 'Unilateral strength, push and trunk stability' },
   B: { name: 'Session B', focus: 'Tempo legs, shoulders, calves and lateral core' },
+  C: { name: 'Session C', focus: 'A short mixed circuit: legs, push, upper back and core' },
 };
+
+// The plan's sessions in order: A, B, and C when you added a third.
+export function sessionIds(plan) {
+  return Object.keys((plan && plan.sessions) || {}).sort();
+}
 
 function rx(exerciseId, sets, min, max, extra = {}) {
   const ex = exerciseById(exerciseId);
@@ -126,8 +132,8 @@ function copySessions(sessions) {
   return Object.fromEntries(Object.entries(sessions).map(([id, s]) => [id, { ...s, exercises: s.exercises.map((p) => ({ ...p })) }]));
 }
 
-// Each session's time target in minutes (40, 50 or 60; 40 unless you changed it).
-export const TARGET_CHOICES = [40, 50, 60];
+// Each session's time target in minutes (30 to 60; 40 unless you changed it).
+export const TARGET_CHOICES = [30, 40, 50, 60];
 export function targetMinutes(session) {
   return (session && session.targetMin) || 40;
 }

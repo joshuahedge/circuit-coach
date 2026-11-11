@@ -88,9 +88,12 @@ export function weekModel(state, today) {
 
 export function scheduleWarnings(schedule) {
   const out = [];
-  const days = Object.keys(schedule.strengthDays || {});
-  if (days.length === 2 && consecutive(days[0], days[1])) {
-    out.push({ level: 'warn', text: `Session ${schedule.strengthDays[days[0]]} and Session ${schedule.strengthDays[days[1]]} are on back-to-back days (${DAY_NAMES[days[0]]} and ${DAY_NAMES[days[1]]}). A day or two between them helps recovery.` });
+  const days = DAY_KEYS.filter((d) => (schedule.strengthDays || {})[d]);
+  for (let i = 0; i < days.length; i++) {
+    for (let j = i + 1; j < days.length; j++) {
+      if (!consecutive(days[i], days[j])) continue;
+      out.push({ level: 'warn', text: `Session ${schedule.strengthDays[days[i]]} and Session ${schedule.strengthDays[days[j]]} are on back-to-back days (${DAY_NAMES[days[i]]} and ${DAY_NAMES[days[j]]}). A day or two between them helps recovery.` });
+    }
   }
   return out;
 }

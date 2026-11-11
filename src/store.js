@@ -37,6 +37,7 @@ export function emptyState(now = new Date()) {
     benchmarks: [],
     decisions: [],
     customExercises: [],
+    easyWeek: null,
     draft: null,
     settings: { lastBackupAt: null, installHintDismissed: false, restShort: 45, restLong: 75, sound: true },
   };
@@ -53,6 +54,7 @@ export function migrate(raw) {
     out[k] = Array.isArray(raw[k]) ? raw[k] : [];
   }
   if (out.draft === undefined) out.draft = null;
+  if (out.easyWeek === undefined) out.easyWeek = null;
   return out;
 }
 
@@ -61,7 +63,7 @@ export function usable(state) {
   if (!state.setupDone) return true;
   const plan = Array.isArray(state.plans) && state.plans[state.plans.length - 1];
   return Boolean(plan && plan.sessions && plan.sessions.A && plan.sessions.B
-    && Array.isArray(plan.sessions.A.exercises) && Array.isArray(plan.sessions.B.exercises));
+    && Object.values(plan.sessions).every((s) => s && Array.isArray(s.exercises)));
 }
 
 function read(storage, key) {

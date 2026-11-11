@@ -1,15 +1,19 @@
 // End of block: how the block went, and a short list of changes for the next block (each with a reason,
-// each optional). Only what needs changing: stalled exercises, repeated pain, sessions too long or short.
-// Nothing changes until the owner starts the next block with the changes they kept.
-import { exerciseById, useExercises, SAFETY_NOTE } from './library.js';
-import { currentPlan, estimateMinutes, ladderIndex, prescriptionLabel, targetMinutes, tempoLabel } from './plan.js';
+// each optional). Fixes first: stalled exercises, repeated pain, sessions too long or short. Then one fresh
+// exercise per session for variety, and, after two well-attended blocks, an optional short Session C (off
+// unless switched on). Nothing changes until the owner starts the next block with the changes they kept.
+import { AREAS, EXERCISES, exerciseById, useExercises, SAFETY_NOTE } from './library.js';
+import {
+  currentPlan, estimateMinutes, ladderIndex, prescriptionLabel, sessionIds, startingPrescription, targetMinutes, tempoLabel, SESSION_INFO,
+} from './plan.js';
 import { blockInfo } from './schedule.js';
-import { daysBetween } from './dates.js';
+import { DAY_KEYS, DAY_NAMES, addDays, daysBetween } from './dates.js';
 import { startNextBlock } from './coach.js';
 
 // A session runs long above its time target + 2 minutes, and short below the target - 10.
 const PER_SESSION = 2;
-const PRIORITY = { pain: 1, long: 2, stalled: 3, short: 4 };
+const PRIORITY = { pain: 1, long: 2, stalled: 3, short: 4, fresh: 5, third: 6 };
+const THIRD_SESSION_RATE = 0.9; // share of planned sessions done over the last two blocks
 
 const isNum = (x) => typeof x === 'number' && Number.isFinite(x);
 const avg = (xs) => (xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : null);
@@ -37,7 +41,7 @@ export function blockSummary(state, today) {
   const inBlock = (d) => !start || d.at >= start;
 
   const exercises = [];
-  for (const sessionId of ['A', 'B']) {
+  for (const sessionId of sessionIds(plan)) {
     for (const p of plan.sessions[sessionId].exercises) {
       const all = logs.filter((l) => l.sessionId === sessionId)
         .map((l) => ({ log: l, entry: (l.exercises || []).find((e) => e.exerciseId === p.exerciseId) }))
@@ -72,7 +76,7 @@ export function blockSummary(state, today) {
     done: logs.length,
     avgEffort: round1(avg(logs.map((l) => l.rpe).filter(isNum))),
     exercises,
-    sessionMinutes: { A: minutes('A'), B: minutes('B') },
+    sessionMinutes: Object.fromEntries(sessionIds(plan).map((id) => [id, minutes(id)])),
     bench: {
       start: atStart,
       latest: latest && atStart && latest.id !== atStart.id ? latest : null,
@@ -83,6 +87,81 @@ export function blockSummary(state, today) {
 
 function proposal(rule, blockNumber, sessionId, p, to, title, reason) {
   return { key: `block:${blockNumber}:${rule}:${sessionId}:${p.exerciseId}`, rule, priority: PRIORITY[rule], sessionId, exerciseId: p.exerciseId, from: p, to, title, reason };
+}
+
+// Exercises in any plan version so far: a fresh exercise prefers one you have never had.
+function everPlanned(state) {
+  return new Set(state.plans.flatMap((v) => Object.values(v.sessions).flatMap((s) => s.exercises.map((p) => p.exerciseId))));
+}
+
+function inPlan(plan) {
+  return new Set(sessionIds(plan).flatMap((id) => plan.sessions[id].exercises.map((p) => p.exerciseId)));
+}
+
+// Built-in exercises not in the plan that match (same focus first, then the same area), new-to-you first.
+function freshPool(plan, everHad, { focus, area }) {
+  const taken = inPlan(plan);
+  const free = Object.values(EXERCISES).filter((ex) => !taken.has(ex.id));
+  const rank = (list) => [...list.filter((ex) => !everHad.has(ex.id)), ...list.filter((ex) => everHad.has(ex.id))];
+  return [...rank(free.filter((ex) => focus && ex.focus === focus)), ...rank(free.filter((ex) => ex.area === area && ex.focus !== focus))];
+}
+
+// One fresh exercise per session, outside the two-fixes limit: the one with the fewest step-ups this block
+// (done at least twice) swaps for a new one working the same muscles. Your own exercises are never swapped out.
+function freshProposal(state, plan, sessionId, session, summary, n, today, skip = new Set()) {
+  const rows = summary.exercises.filter((e) => e.sessionId === sessionId && e.count >= 2 && !skip.has(e.exerciseId))
+    .filter((e) => { const ex = exerciseById(e.exerciseId); return ex && !ex.custom; })
+    .sort((a, b) => a.progressions - b.progressions || b.count - a.count);
+  const row = rows[0];
+  if (!row) return null;
+  const ex = exerciseById(row.exerciseId);
+  const pick = freshPool(plan, everPlanned(state), ex)[0];
+  if (!pick) return null;
+  const to = startingPrescription(pick.id, today);
+  const area = AREAS.find((a) => a.id === pick.area);
+  const how = row.progressions ? `${row.progressions} step${row.progressions > 1 ? 's' : ''} up` : 'no step up';
+  return proposal('fresh', n, sessionId, row.p, to, `Fresh exercise: ${row.p.variation} → ${pick.name}`,
+    `You did ${row.p.variation} ${row.count} times this block (${how}). For variety, ${pick.name} works the same area (${area ? area.label.toLowerCase() : pick.area}): ${pick.note.replace(/\.$/, '').toLowerCase()}. It starts at ${rxText(to)}. Your history for ${row.p.variation} stays in Progress.`);
+}
+
+// The day for a new session: free, and as far as possible from the days already used.
+function freeDay(strengthDays) {
+  const used = DAY_KEYS.filter((d) => strengthDays[d]).map((d) => DAY_KEYS.indexOf(d));
+  const gap = (i) => Math.min(...used.map((j) => Math.min(Math.abs(i - j), 7 - Math.abs(i - j))));
+  const free = DAY_KEYS.map((d, i) => ({ d, i })).filter(({ d }) => !strengthDays[d]);
+  if (!free.length) return null;
+  free.sort((a, b) => gap(b.i) - gap(a.i) || a.i - b.i);
+  return free[0].d;
+}
+
+// After two blocks with nearly every session done: an optional short Session C, one exercise per area that A
+// and B do not already use, two sets each, on the free day furthest from the others.
+function thirdSessionProposal(state, plan, summary, n, today) {
+  if (plan.sessions.C || n < 2 || !summary.startDate) return null;
+  const days = state.schedule.strengthDays || {};
+  const perWeek = Object.keys(days).length;
+  if (perWeek < 2) return null;
+  const from = addDays(summary.startDate, -56);
+  const planned = (summary.weeks + 8) * perWeek;
+  const done = state.strengthLogs.filter((l) => l.date >= from && l.date <= today).length;
+  if (done < planned * THIRD_SESSION_RATE) return null;
+  const day = freeDay(days);
+  if (!day) return null;
+  const everHad = everPlanned(state);
+  const ids = [];
+  for (const a of AREAS) {
+    const pick = freshPool({ sessions: { ...plan.sessions, C: { exercises: ids.map((id) => ({ exerciseId: id })) } } }, everHad, { area: a.id })[0];
+    if (pick) ids.push(pick.id);
+  }
+  if (ids.length < 3) return null;
+  const exercises = ids.map((id) => { const p = startingPrescription(id, today); return { ...p, sets: Math.min(p.sets, 2) }; });
+  const session = { id: 'C', ...SESSION_INFO.C, targetMin: 30, exercises };
+  return {
+    key: `block:${n}:third:C`, rule: 'third', kind: 'third-session', priority: PRIORITY.third, sessionId: 'C', exerciseId: null,
+    defaultOff: true, addSession: { session, day },
+    title: `Add a short Session C on ${DAY_NAMES[day]}s`,
+    reason: `You did ${done} of ${planned} planned sessions over the last two blocks. A short third circuit (about ${estimateMinutes(session)} min) adds training without changing A or B. It stays off unless you switch it on, and you can edit or remove it any time in Plan.`,
+  };
 }
 
 function withExtraSet(session, exerciseId) {
@@ -108,7 +187,7 @@ export function nextBlockProposals(state, today) {
   }
 
   const proposals = [];
-  for (const sessionId of ['A', 'B']) {
+  for (const sessionId of sessionIds(plan)) {
     const session = plan.sessions[sessionId];
     const cands = [];
     for (const ex of summary.exercises.filter((e) => e.sessionId === sessionId)) {
@@ -166,7 +245,12 @@ export function nextBlockProposals(state, today) {
       used.add(c.exerciseId);
       proposals.push(c);
     }
+    // Variety has its own slot, on an exercise no fix above is changing.
+    const fresh = freshProposal(state, plan, sessionId, session, summary, n, today, used);
+    if (fresh) proposals.push(fresh);
   }
+  const third = thirdSessionProposal(state, plan, summary, n, today);
+  if (third) proposals.push(third);
   return { summary, proposals, notes };
 }
 
@@ -175,11 +259,12 @@ export function applyNextBlock(state, today, chosen) {
   let next = state;
   if (chosen.length) {
     const plan = currentPlan(state);
-    const sessions = {
-      A: { ...plan.sessions.A, exercises: plan.sessions.A.exercises.map((p) => ({ ...p })) },
-      B: { ...plan.sessions.B, exercises: plan.sessions.B.exercises.map((p) => ({ ...p })) },
-    };
+    const sessions = Object.fromEntries(sessionIds(plan).map((id) => [id, { ...plan.sessions[id], exercises: plan.sessions[id].exercises.map((p) => ({ ...p })) }]));
     for (const c of chosen) {
+      if (c.kind === 'third-session') {
+        sessions.C = { ...c.addSession.session, exercises: c.addSession.session.exercises.map((p) => ({ ...p, since: today })) };
+        continue;
+      }
       sessions[c.sessionId].exercises = sessions[c.sessionId].exercises.map((p) => (p.exerciseId === c.exerciseId ? { ...c.to, since: today } : p));
     }
     const n = (state.block.number || 1) + 1;
@@ -195,6 +280,8 @@ export function applyNextBlock(state, today, chosen) {
         key: c.key, status: 'accepted', at: today, planVersion: version.version, sessionId: c.sessionId, exerciseId: c.exerciseId, kind: 'block',
       }))],
     };
+    const third = chosen.find((c) => c.kind === 'third-session');
+    if (third) next = { ...next, schedule: { ...next.schedule, strengthDays: { ...next.schedule.strengthDays, [third.addSession.day]: 'C' } } };
   }
   return startNextBlock(next, today);
 }

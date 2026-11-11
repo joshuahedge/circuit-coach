@@ -37,6 +37,15 @@
 >   `area`, `focus`, `note`, `start`). Your own exercises (`state.customExercises`, registered via
 >   `useExercises`; the coach adds reps or 5 s up to a cap, then a set). A balance check flags a session with no
 >   legs, push, upper-back or core exercise and offers two built-in ones.
+> - 1.3 (11 Nov 2026, owner's picks): sessions are no longer fixed at A and B (`sessionIds`). Block review adds
+>   one fresh exercise per session outside the two-fixes cap (fewest step-ups, done 2+ times; same focus, then
+>   area; never-had first) and, from block 2 when 90 % of planned sessions over the last two blocks were done,
+>   an optional Session C (off by default; one exercise per area not in A/B, 2 sets, 30-min target, the free day
+>   furthest from the others; removable in Plan). Coach notes: easy week (last 3 sessions' effort >= 8 and 1+
+>   above the 3 before, with short reps in 2 of 3; or 4+ low check-ins in 14 days) = one set fewer for 2
+>   sessions, no step-ups, easy logs never count as evidence; shorter rests (an exercise ready but with no step
+>   left) = 15 s off each rest, floors 30 s / 60 s. Five more pictures (glute bridge, decline press-up, front
+>   plank, bird dog, reverse plank).
 
 Approved in chat on 7 Nov 2026. Source: a private training brief (kept out of this public repo). This spec
 records what the app must do and the decisions made with the owner. Personal body measurements are never

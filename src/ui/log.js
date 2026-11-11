@@ -2,7 +2,7 @@
 import { h, ICONS, topbar } from './dom.js';
 import { openSheet } from './sheet.js';
 import { canEditLog, reopenSession } from './sessionSummary.js';
-import { currentPlan, estimateMinutes } from '../plan.js';
+import { sessionIds, currentPlan, estimateMinutes } from '../plan.js';
 import { DAY_NAMES, formatDay, formatShort } from '../dates.js';
 import { setsText } from '../summary.js';
 
@@ -36,7 +36,7 @@ export function logView(app) {
         h('h3', null, `Session ${s.draft.sessionId} in progress`),
         h('p', { class: 'small muted' }, `Started ${formatDay(s.draft.date)}.`),
         h('button', { class: 'btn strength block', type: 'button', onclick: () => app.go(`#/log/strength/${s.draft.sessionId}`) }, 'Resume')) : null,
-      ['A', 'B'].map((id) => choice(id, 'strength', `Session ${id}`,
+      sessionIds(plan).map((id) => choice(id, 'strength', `Session ${id}`,
         `${plan.sessions[id].focus} · ~${estimateMinutes(plan.sessions[id])} min${dayOf(id) ? ` · ${DAY_NAMES[dayOf(id)]}s` : ''}`,
         () => app.go(`#/log/strength/${id}`))),
       choice(ICONS.heart, 'other', 'Morning check-in', 'Energy, sleep, leg soreness', () => app.go('#/log/checkin')),

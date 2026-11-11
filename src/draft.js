@@ -46,6 +46,8 @@ function buildRows(p, last, keep = []) {
 
 export function createDraft(state, sessionId, today, { nowIso = new Date().toISOString() } = {}) {
   useExercises(state);
+  const easy = Boolean(state.easyWeek && state.easyWeek.sessionsLeft > 0);
+  const lighter = (p) => (easy ? { ...p, sets: Math.max(1, p.sets - 1) } : p);
   const plan = currentPlan(state);
   const session = plan.sessions[sessionId];
   const checkin = state.checkins.find((c) => c.date === today);
@@ -59,7 +61,8 @@ export function createDraft(state, sessionId, today, { nowIso = new Date().toISO
     pain: '',
     notes: '',
     durationMin: null,
-    exercises: session.exercises.map((p) => ({
+    ...(easy ? { easy: true } : {}),
+    exercises: session.exercises.map(lighter).map((p) => ({
       exerciseId: p.exerciseId,
       variation: p.variation,
       target: targetOf(p),
@@ -153,6 +156,7 @@ export function finishDraft(draft, { nowMs = Date.now(), id }) {
     energyBefore: draft.energyBefore,
     pain: draft.pain.trim(),
     notes: draft.notes.trim(),
+    ...(draft.easy ? { easy: true } : {}),
     exercises: draft.exercises.map((e) => {
       const sets = e.rows.filter((r) => r.done).map((r) => ({ set: r.set, side: r.side, value: r.value, rir: r.rir }));
       let status = e.status;

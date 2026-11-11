@@ -2,7 +2,7 @@
 // suggestions (each with a reason and the logs behind it) and notes. Accepting one makes a new plan version.
 import { exerciseById, useExercises, SAFETY_NOTE } from './library.js';
 import {
-  currentPlan, estimateMinutes, ladderIndex, prescriptionLabel, sideText, targetMinutes, tempoLabel, withPrescription,
+  currentPlan, estimateMinutes, ladderIndex, prescriptionLabel, sessionIds, sideText, targetMinutes, tempoLabel, withPrescription,
 } from './plan.js';
 import { blockInfo, scheduleWarnings } from './schedule.js';
 import { daysBetween, formatShort, weekStart } from './dates.js';
@@ -42,7 +42,7 @@ function targetMatches(t, p) {
 function matchingEntries(state, sessionId, p) {
   const out = [];
   for (const log of state.strengthLogs) {
-    if (log.sessionId !== sessionId || log.date < p.since) continue;
+    if (log.sessionId !== sessionId || log.date < p.since || log.easy) continue;
     const entry = (log.exercises || []).find((e) => e.exerciseId === p.exerciseId);
     if (!entry || entry.status !== 'done' || !targetMatches(entry.target, p)) continue;
     out.push({ log, entry, full: entry.target.sets === p.sets });
@@ -281,9 +281,85 @@ function sessionCandidates(ctx, sessionId, session) {
   return out;
 }
 
+// Signs you need an easy week: effort climbing while reps fall short, or check-ins low for two weeks.
+// Not in the settling-in weeks or the review, not during an easy week, and not within 14 days of the last
+// easy-week offer you answered (or 28 days of the last easy week).
+const EASY_SESSIONS = 2;
+
+export function easyWeekActive(state) {
+  return Boolean(state.easyWeek && state.easyWeek.sessionsLeft > 0);
+}
+
+function fatigue(ctx) {
+  const { state, today, block } = ctx;
+  if (block.phase === 'establish' || block.phase === 'review' || easyWeekActive(state)) return null;
+  const answered = state.decisions.filter((d) => d.kind === 'easy');
+  if (answered.some((d) => within(d.at, today, d.status === 'accepted' ? 28 : 14))) return null;
+  const why = [];
+  const logs = state.strengthLogs.filter((l) => within(l.date, today, 21) && !l.easy).sort(byDate);
+  const rpes = logs.map((l) => l.rpe).filter(isNum);
+  if (rpes.length >= 5) {
+    const last = avg(rpes.slice(-3));
+    const before = avg(rpes.slice(-6, -3));
+    const short = logs.slice(-3).filter((l) => (l.exercises || []).some((e) => e.status === 'done' && e.target && entryMissed(e))).length;
+    if (last >= 8 && last - before >= 1 && short >= 2) {
+      why.push(`Your last three sessions averaged effort ${last.toFixed(1)}/10, up from ${before.toFixed(1)}, and you fell short of your targets in ${short} of them.`);
+    }
+  }
+  const checks = state.checkins.filter((c) => within(c.date, today, 14) && ((isNum(c.energy) && c.energy <= 2) || (isNum(c.sleep) && c.sleep <= 2)));
+  if (checks.length >= 4) why.push(`${checks.length} check-ins in the last two weeks showed low energy or poor sleep.`);
+  return why.length ? why.join(' ') : null;
+}
+
+// An exercise with nowhere further to go: ready to step up, but at its cap with every lever used.
+function maxedOut(ctx) {
+  const { plan, block } = ctx;
+  if (block.phase !== 'build' && block.phase !== 'intensify') return [];
+  const out = [];
+  for (const sessionId of sessionIds(plan)) {
+    const session = plan.sessions[sessionId];
+    for (const p of session.exercises) {
+      const entries = matchingEntries(ctx.state, sessionId, p);
+      const ready = readiness(ctx, p, entries, anyEntries(ctx.state, sessionId, p));
+      if (ready && !progressStep(ctx, sessionId, session, p, ready)) out.push({ sessionId, name: exName(p) });
+    }
+  }
+  return out;
+}
+
+export const REST_FLOOR = { short: 30, long: 60 };
+
 function notesFor(ctx) {
   const { state, today, plan, block, recovery } = ctx;
   const notes = [];
+
+  if (easyWeekActive(state)) {
+    const n = state.easyWeek.sessionsLeft;
+    notes.push({ key: `easy-on:${state.easyWeek.from}:${n}`, kind: 'easy-on', level: 'info', title: 'Easy week',
+      text: `${n} lighter session${n > 1 ? 's' : ''} to go, with one set fewer on every exercise. Step-ups wait until it is done, then the plan picks up where it left off.` });
+  } else {
+    const tired = fatigue(ctx);
+    if (tired) {
+      notes.push({ key: `easy:${weekStart(today)}`, kind: 'easy', level: 'warn', action: 'easy-week', title: 'Time for an easy week?',
+        text: `${tired} An easy week, with one set fewer on every exercise for your next ${EASY_SESSIONS} sessions, lets your body catch up. Then the plan picks up where it left off.` });
+    }
+  }
+
+  const rest = { short: state.settings.restShort || 45, long: state.settings.restLong || 75 };
+  if (rest.short > REST_FLOOR.short || rest.long > REST_FLOOR.long) {
+    const maxed = maxedOut(ctx);
+    if (maxed.length) {
+      const to = { short: Math.max(REST_FLOOR.short, rest.short - 15), long: Math.max(REST_FLOOR.long, rest.long - 15) };
+      const names = maxed.map((m) => `${m.name} (Session ${m.sessionId})`);
+      const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0];
+      const parts = [];
+      if (to.short !== rest.short) parts.push(`${rest.short} → ${to.short} s between exercises`);
+      if (to.long !== rest.long) parts.push(`${rest.long} → ${to.long} s between rounds`);
+      notes.push({ key: `rest:${block.number}:${rest.short}:${rest.long}`, kind: 'rest', level: 'info', action: 'shorter-rest', rest: to,
+        title: 'Shorter rests?',
+        text: `${list} ${maxed.length > 1 ? 'have' : 'has'} nowhere further to go right now. Shorter rests make the whole circuit harder without making it longer: ${parts.join(', ')}.` });
+    }
+  }
 
   if (block.phase === 'review') {
     notes.push({ key: `block-review:${block.number}`, kind: 'block', level: 'info', action: 'start-block',
@@ -316,7 +392,7 @@ function notesFor(ctx) {
   }
 
   // Holding steady: two full sessions with every set at 0 reps in reserve.
-  for (const sessionId of ['A', 'B']) {
+  for (const sessionId of sessionIds(plan)) {
     for (const p of plan.sessions[sessionId].exercises) {
       const full = matchingEntries(state, sessionId, p).filter((e) => e.full).slice(-2);
       if (full.length === 2 && full.every((e) => {
@@ -345,7 +421,7 @@ export function coachReview(state, today) {
   const ctx = { state, today, plan, block: blockInfo(state, today), recovery: recoveryFlags(state, today) };
   const decided = new Set(state.decisions.map((d) => d.key));
   const suggestions = [];
-  for (const sessionId of ['A', 'B']) {
+  for (const sessionId of sessionIds(plan)) {
     const session = plan.sessions[sessionId];
     const cands = [
       ...session.exercises.flatMap((p) => exerciseCandidates(ctx, sessionId, session, p)),
@@ -371,7 +447,8 @@ export function coachReview(state, today) {
     }
   }
   const notes = notesFor(ctx).filter((n) => !decided.has(n.key));
-  return { suggestions, notes, block: ctx.block };
+  const kept = easyWeekActive(state) ? suggestions.filter((x) => x.kind !== 'progress') : suggestions;
+  return { suggestions: kept, notes, block: ctx.block };
 }
 
 function decision(s, status, today, planVersion = null) {
@@ -408,6 +485,32 @@ export function rejectSuggestion(state, s, today) {
   return { ...state, decisions: [...state.decisions, decision(s, 'rejected', today)] };
 }
 
+export function startEasyWeek(state, note, today) {
+  return {
+    ...state,
+    easyWeek: { from: today, sessionsLeft: EASY_SESSIONS },
+    decisions: [...state.decisions, { key: note.key, status: 'accepted', at: today, kind: 'easy' }],
+  };
+}
+
+// After a session is saved: one fewer easy session to go.
+export function afterSessionSaved(state, log) {
+  if (!log.easy || !state.easyWeek) return state;
+  const left = state.easyWeek.sessionsLeft - 1;
+  return { ...state, easyWeek: left > 0 ? { ...state.easyWeek, sessionsLeft: left } : null };
+}
+
+export function shortenRests(state, note, today) {
+  return {
+    ...state,
+    settings: { ...state.settings, restShort: note.rest.short, restLong: note.rest.long },
+    decisions: [...state.decisions, {
+      key: note.key, status: 'accepted', at: today, kind: 'rest',
+      before: { restShort: state.settings.restShort, restLong: state.settings.restLong },
+    }],
+  };
+}
+
 export function dismissNote(state, note, today) {
   return { ...state, decisions: [...state.decisions, { key: note.key, status: 'dismissed', at: today, kind: note.kind }] };
 }
@@ -426,7 +529,7 @@ export function exerciseStanding(state, today) {
   const recovery = recoveryFlags(state, today);
   const review = coachReview(state, today);
   const out = [];
-  for (const sessionId of ['A', 'B']) {
+  for (const sessionId of sessionIds(plan)) {
     for (const p of plan.sessions[sessionId].exercises) {
       const name = exName(p);
       const unit = p.unit === 'seconds' ? ' s' : '';

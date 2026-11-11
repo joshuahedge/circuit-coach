@@ -437,9 +437,9 @@ describe('ui: coach and plan', () => {
     expect(root.textContent).toContain('Block 1 finished');
     click(root, 'Review the block');
     expect(root.textContent).toContain('Changes for block 2');
-    expect(btn(root, 'Start block 2 with 4 changes')).toBeTruthy();
+    expect(btn(root, 'Start block 2 with 6 changes')).toBeTruthy(); // 2 fixes and 1 fresh exercise per session
     click(root, 'Keep: Reverse lunge: a fresh challenge');
-    click(root, 'Start block 2 with 3 changes');
+    click(root, 'Start block 2 with 5 changes');
     expect(app.state.block.number).toBe(2);
     expect(app.state.plans.length).toBe(2);
     expect(currentPlan(app.state).sessions.A.exercises[0].tempoDown).toBe(2);

@@ -39,10 +39,10 @@ describe('block review: summary', () => {
 });
 
 describe('block review: proposals', () => {
-  it('a stalled exercise gets a fresh challenge, at most two per session', () => {
+  it('a stalled exercise gets a fresh challenge, at most two fixes per session (plus one fresh exercise)', () => {
     const r = nextBlockProposals(block(), REVIEW);
-    expect(r.proposals.filter((p) => p.sessionId === 'A').length).toBe(2);
-    expect(r.proposals.filter((p) => p.sessionId === 'B').length).toBe(2);
+    expect(r.proposals.filter((p) => p.sessionId === 'A' && p.rule !== 'fresh').length).toBe(2);
+    expect(r.proposals.filter((p) => p.sessionId === 'B' && p.rule !== 'fresh').length).toBe(2);
     const lunge = find(r, 'reverse-lunge', 'stalled');
     expect(lunge.to.tempoDown).toBe(3);
     expect([lunge.to.min, lunge.to.max]).toEqual([6, 8]);
@@ -116,7 +116,7 @@ describe('block review: starting the next block', () => {
   it('applies the chosen changes as one plan version and starts block 2', () => {
     const s = block();
     const { proposals } = nextBlockProposals(s, REVIEW);
-    const chosen = proposals.slice(0, 3);
+    const chosen = proposals.filter((p) => p.rule !== 'fresh').slice(0, 3);
     const next = applyNextBlock(s, REVIEW, chosen);
     expect(next.plans.length).toBe(2);
     const plan = currentPlan(next);

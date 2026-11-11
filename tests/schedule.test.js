@@ -23,12 +23,20 @@ describe('schedule: training days', () => {
     expect(scheduleWarnings({ strengthDays: DEFAULT_DAYS })).toEqual([]);
   });
 
-  it('moving a session keeps the other one', () => {
+  it('moving a session keeps the others; onto a taken day, the two swap', () => {
     let d = withSessionDay({ tue: 'A', fri: 'B' }, 'A', 'mon');
     expect(d).toEqual({ mon: 'A', fri: 'B' });
     d = withSessionDay(d, 'B', 'mon');
-    expect(dayOf(d, 'B')).toBe('mon');
-    expect(dayOf(d, 'A')).toBe(null);
+    expect(d).toEqual({ mon: 'B', fri: 'A' });
+    d = withSessionDay(d, 'C', 'wed');
+    expect(d).toEqual({ mon: 'B', fri: 'A', wed: 'C' });
+    d = withSessionDay(d, 'C', 'mon');
+    expect(d).toEqual({ mon: 'C', fri: 'A', wed: 'B' });
+  });
+
+  it('warns about every pair of back-to-back sessions', () => {
+    expect(scheduleWarnings({ strengthDays: { mon: 'A', wed: 'C', fri: 'B' } }).length).toBe(0);
+    expect(scheduleWarnings({ strengthDays: { mon: 'A', tue: 'C', wed: 'B' } }).length).toBe(2);
   });
 
   it('warns about back-to-back days, including Sunday to Monday', () => {

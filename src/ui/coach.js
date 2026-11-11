@@ -1,7 +1,9 @@
 // Coach: suggestions with Accept / Edit / Reject, notes, block review, plan history, summary for Claude.
 import { h, fill, topbar, stepper, field } from './dom.js';
 import { openSheet, confirmSheet } from './sheet.js';
-import { coachReview, acceptSuggestion, rejectSuggestion, dismissNote, canUndoDecision, undoDecision, exerciseStanding } from '../coach.js';
+import {
+  coachReview, acceptSuggestion, rejectSuggestion, dismissNote, canUndoDecision, undoDecision, exerciseStanding, startEasyWeek, shortenRests,
+} from '../coach.js';
 import { currentPlan, prescriptionLabel, revertPlan, tempoLabel, sidesFor } from '../plan.js';
 import { exerciseById, EXERCISES } from '../library.js';
 import { buildSummary } from '../summary.js';
@@ -141,8 +143,23 @@ function noteCard(app, n) {
   if (n.action === 'start-block') {
     actions.push(h('button', { class: 'btn primary', type: 'button', onclick: () => app.go('#/coach/block') }, 'Review and plan the next block'));
   }
+  if (n.action === 'easy-week') {
+    actions.push(h('button', { class: 'btn primary', type: 'button', onclick: () => {
+      const before = app.state;
+      app.update((x) => startEasyWeek(x, n, today));
+      app.toast('Easy week on: one set fewer on every exercise for 2 sessions', { action: { label: 'Undo', run: () => app.update(() => before) }, ms: 6000 });
+    } }, 'Take an easy week'));
+  }
+  if (n.action === 'shorter-rest') {
+    actions.push(h('button', { class: 'btn primary', type: 'button', onclick: () => {
+      const before = app.state;
+      app.update((x) => shortenRests(x, n, today));
+      app.toast(`Rests now ${n.rest.short} s and ${n.rest.long} s`, { action: { label: 'Undo', run: () => app.update(() => before) }, ms: 6000 });
+    } }, 'Shorten rests'));
+  }
   // The block review stays until the next block starts: dismissing it would leave the coach in review.
-  if (n.kind !== 'block') actions.push(h('button', { class: 'btn', type: 'button', onclick: () => app.update((x) => dismissNote(x, n, today)) }, 'Got it'));
+  const later = n.action === 'easy-week' || n.action === 'shorter-rest' ? 'Not now' : 'Got it';
+  if (n.kind !== 'block') actions.push(h('button', { class: 'btn', type: 'button', onclick: () => app.update((x) => dismissNote(x, n, today)) }, later));
   return h('div', { class: `card ${n.level === 'warn' ? 'warn' : 'info'}` },
     h('h3', null, n.title),
     h('p', { class: 'small' }, n.text),

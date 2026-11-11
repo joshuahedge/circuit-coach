@@ -19,7 +19,7 @@ import { useExercises } from './library.js';
 
 export function parseRoute(hash) {
   const [a, b, c] = String(hash || '').replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
-  if (a === 'log' && b === 'strength' && (c === 'A' || c === 'B')) return { name: 'strength', sessionId: c };
+  if (a === 'log' && b === 'strength' && /^[A-Z]$/.test(c || '')) return { name: 'strength', sessionId: c };
   if (a === 'log' && b === 'checkin') return { name: 'checkin', id: c || null };
   if (a === 'log' && b === 'benchmark') return { name: 'benchmark', id: c || null };
   if (a === 'log' && b === 'summary' && c) return { name: 'summary', id: c };
@@ -80,6 +80,17 @@ function recoveryView(app) {
       }, 'Start fresh')));
 }
 
+// A training day for a session the plan no longer has (Session C removed, or plan history gone back to a
+// version without it) is dropped, so the week never offers a session that does not exist.
+function scheduleForPlan(state) {
+  if (!state || !state.setupDone || !state.plans || !state.plans.length) return state;
+  const sessions = state.plans[state.plans.length - 1].sessions || {};
+  const days = (state.schedule && state.schedule.strengthDays) || {};
+  if (Object.values(days).every((id) => sessions[id])) return state;
+  const strengthDays = Object.fromEntries(Object.entries(days).filter(([, id]) => sessions[id]));
+  return { ...state, schedule: { ...state.schedule, strengthDays } };
+}
+
 export function createApp({ root, storage, now = () => new Date(), useHash = true, win = window }) {
   const loaded = loadState(storage, now());
   const app = {
@@ -108,6 +119,7 @@ export function createApp({ root, storage, now = () => new Date(), useHash = tru
       const next = fn(app.state);
       if (next) app.state = next;
     }
+    app.state = scheduleForPlan(app.state);
     const ok = saveState(storage, app.state);
     if (!ok) app.toast("Couldn't save. Back up your data now from the Plan tab.", { level: 'warn', ms: 8000 });
     return ok;

@@ -1,5 +1,5 @@
 // Plain-text training summary to paste into a Claude chat for a second opinion.
-import { currentPlan, prescriptionLabel, tempoLabel } from './plan.js';
+import { currentPlan, prescriptionLabel, sessionIds, tempoLabel } from './plan.js';
 import { blockInfo } from './schedule.js';
 import { coachReview } from './coach.js';
 import { DAY_KEYS, DAY_SHORT, addDays, formatDay, formatShort } from './dates.js';
@@ -48,7 +48,7 @@ export function buildSummary(state, today) {
   lines.push('');
   if (plan) {
     lines.push(`CURRENT PLAN (version ${plan.version}, from ${formatShort(plan.effectiveFrom)}: ${plan.reason})`);
-    for (const id of ['A', 'B']) {
+    for (const id of sessionIds(plan)) {
       const s = plan.sessions[id];
       lines.push(`${s.name}: ${s.focus}`);
       for (const rx of s.exercises) {

@@ -26,7 +26,9 @@ function exerciseRow(ex) {
 export function blockReviewView(app) {
   const today = app.today();
   const { summary: sum, proposals, notes } = nextBlockProposals(app.state, today);
-  if (!app.blockChoice || app.blockChoice.block !== sum.number) app.blockChoice = { block: sum.number, off: new Set() };
+  if (!app.blockChoice || app.blockChoice.block !== sum.number) {
+    app.blockChoice = { block: sum.number, off: new Set(proposals.filter((p) => p.defaultOff).map((p) => p.key)) };
+  }
   const choice = app.blockChoice;
   const picked = proposals.filter((p) => !choice.off.has(p.key));
   const nextN = sum.number + 1;
@@ -76,10 +78,11 @@ export function blockReviewView(app) {
           const on = !choice.off.has(p.key);
           return h('div', { class: `card${on ? '' : ' ghost'}` },
             h('div', { class: 'switch-row' },
-              h('span', null, h('div', { class: 'kind progress' }, `Session ${p.sessionId}`), h('b', null, p.title)),
+              h('span', null, h('div', { class: 'kind progress' }, `Session ${p.sessionId}${p.kind === 'third-session' ? ' · optional' : p.rule === 'fresh' ? ' · variety' : ''}`), h('b', null, p.title)),
               toggle({ checked: on, label: `Keep: ${p.title}`, onChange: (v) => { if (v) choice.off.delete(p.key); else choice.off.add(p.key); app.render(); } })),
             h('p', { class: 'small' }, p.reason),
-            h('div', { class: 'diff' },
+            p.kind === 'third-session' ? h('div', { class: 'list' }, p.addSession.session.exercises.map((x) => h('div', { class: 'list-item' },
+              h('span', { class: 'grow' }, h('b', null, x.variation), h('div', { class: 'small muted' }, rx(x)))))) : h('div', { class: 'diff' },
               h('span', { class: 'from' }, `${p.from.variation !== p.to.variation ? `${p.from.variation}: ` : ''}${rx(p.from)}`),
               h('span', { 'aria-hidden': 'true' }, '→'),
               h('span', { class: 'to' }, `${p.from.variation !== p.to.variation ? `${p.to.variation}: ` : ''}${rx(p.to)}`)));

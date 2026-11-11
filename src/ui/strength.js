@@ -9,7 +9,7 @@ import { openSheet, confirmSheet } from './sheet.js';
 import { exerciseById, EXERCISES, WARMUPS, COOLDOWN, REST_NOTE, SAFETY_NOTE } from '../library.js';
 import { currentPlan, estimateMinutes, prescriptionLabel, tempoLabel } from '../plan.js';
 import { createDraft, finishDraft, draftProgress, elapsedMinutes, swapForToday } from '../draft.js';
-import { coachReview } from '../coach.js';
+import { coachReview, afterSessionSaved } from '../coach.js';
 import { newId } from '../store.js';
 import { formatDay } from '../dates.js';
 
@@ -60,7 +60,7 @@ function preview(app, sessionId) {
     h('div', { class: 'content' },
       h('p', { class: 'muted' }, `About ${estimateMinutes(session)} min including warm-up and cool-down.`),
       coachBanner(app, sessionId),
-      h('div', { class: 'card' }, h('h3', null, 'Warm-up · 5 min'), h('p', { class: 'small' }, WARMUPS[sessionId])),
+      h('div', { class: 'card' }, h('h3', null, 'Warm-up · 5 min'), h('p', { class: 'small' }, (WARMUPS[sessionId] || WARMUPS.C))),
       list,
       h('p', { class: 'small muted' }, REST_NOTE),
       h('div', { class: 'sticky-action' },
@@ -215,7 +215,7 @@ function finishSheet(app, sessionId) {
       const today = app.today();
       const before = new Set(coachReview(app.state, today).suggestions.map((x) => x.key));
       const log = finishDraft(d, { nowMs: app.now().getTime(), id: newId('str') });
-      app.save((x) => ({ ...x, strengthLogs: [...x.strengthLogs.filter((l) => l.id !== log.id), log], draft: null }));
+      app.save((x) => afterSessionSaved({ ...x, strengthLogs: [...x.strengthLogs.filter((l) => l.id !== log.id), log], draft: null }, log));
       app.freshSuggestions = coachReview(app.state, today).suggestions.filter((x) => !before.has(x.key)).map((x) => x.key);
       app.editRows = null;
       app.lastNextRef = null;
@@ -267,11 +267,12 @@ function logger(app, sessionId) {
     h('div', { class: 'content' },
       h('div', { class: 'progressbar', style: { margin: '0 0 12px' } }, h('i', { style: { width: `${p.total ? Math.round((p.done / p.total) * 100) : 0}%` } })),
       d.editingId ? h('div', { class: 'banner warn' }, `Editing the session from ${formatDay(d.date)}. Save it again from Finish.`) : null,
+      d.easy ? h('div', { class: 'banner info' }, h('b', null, 'Easy week. '), 'One set fewer on every exercise today. Keep it comfortable.') : null,
       p.done === 0 && !d.editingId ? coachBanner(app, sessionId) : null,
       d.energyBefore === null || p.done === 0 ? h('div', { class: 'card' },
         h('h3', null, 'Energy before you start'),
         scaleChips({ min: 1, max: 5, value: d.energyBefore, label: 'Energy before', lowLabel: 'Drained', highLabel: 'Great', onChange: (v) => { d.energyBefore = v; app.save(); } })) : null,
-      h('details', { class: 'explain', open: p.done === 0 ? true : null }, h('summary', null, 'Warm-up · 5 min'), h('div', null, WARMUPS[sessionId])),
+      h('details', { class: 'explain', open: p.done === 0 ? true : null }, h('summary', null, 'Warm-up · 5 min'), h('div', null, (WARMUPS[sessionId] || WARMUPS.C))),
       h('div', { class: 'row between', style: { margin: '0 4px 10px' } },
         h('span', { class: 'small muted' }, `Circuit · rest ${cfg.rest.short} s between exercises, ${cfg.rest.long} s between rounds`),
         h('button', { class: 'link', type: 'button', onclick: () => openTimerSettings(app) }, 'Change')),

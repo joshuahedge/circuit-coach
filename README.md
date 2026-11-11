@@ -59,7 +59,11 @@ minutes); weeks 7–8 hold and test. Then a **block review** shows how the 8 wee
 each exercise's trend and step-ups, benchmarks) and proposes changes for the next block, only where
 something needs it: a fresh challenge for a stalled exercise, a gentler swap after repeated pain, or a set
 fewer or more if sessions ran long or short. You switch each change on or off before starting the next
-block (Undo afterwards, and every plan version is kept). It eases off first when you report
+block (Undo afterwards, and every plan version is kept). Each review also offers one fresh exercise per
+session (a new one for the same muscles, for variety), and after two blocks with nearly every session done,
+an optional short Session C. Along the way the coach suggests an easy week (one set fewer for two sessions)
+when effort climbs while reps fall or check-ins stay low, and shorter rests once an exercise has nowhere
+further to go. It eases off first when you report
 pain, miss reps, rate sessions 9+ or report high leg soreness. At most two changes per session at a time.
 Nothing changes until you accept it.
 

@@ -9,6 +9,7 @@ import './timer.test.js';
 import './guide.test.js';
 import './blockReview.test.js';
 import './circuit.test.js';
+import './evolve.test.js';
 import './ui.test.js';
 import './pwa.test.js';
 import './moreExercises.test.js';

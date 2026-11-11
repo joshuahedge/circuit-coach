@@ -165,6 +165,14 @@ export const WARMUP_STEPS = {
     { name: 'Bird dogs', sec: 45, cue: 'Slow, alternate sides.' },
     { name: 'Shoulder circles', sec: 30, cue: 'Big, slow circles.' },
   ],
+  C: [
+    { name: 'March on the spot', sec: 45, cue: 'Easy pace, arms swinging.' },
+    { name: 'Bodyweight squats', sec: 45, cue: 'Smooth, comfortable depth.' },
+    { name: 'Hip hinges', sec: 45, cue: 'Hands on hips, push them back.' },
+    { name: 'Arm circles', sec: 30, cue: 'Forwards, then backwards.' },
+    { name: 'Cat-cow', sec: 45, cue: 'On hands and knees; round, then arch, with your breath.' },
+    { name: 'Bird dogs', sec: 60, cue: 'Slow, alternate sides.' },
+  ],
 };
 
 export const COOLDOWN_STEPS = [

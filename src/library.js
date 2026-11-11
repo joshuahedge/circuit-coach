@@ -16,6 +16,7 @@ export const WARMUPS = {
   A: 'March or gentle jog on the spot, bodyweight squats, alternating reverse lunges, glute bridges, arm circles, '
     + 'bird dogs. Move smoothly; this is not a fitness test.',
   B: 'Hip hinges (good mornings), leg swings, calf raises, alternating lunges, bird dogs, shoulder circles.',
+  C: 'March on the spot, bodyweight squats, hip hinges, arm circles, cat-cow, bird dogs.',
 };
 
 export const COOLDOWN = 'Gentle hip-flexor stretch, calf stretch, 90/90 hip rotations and thoracic rotations. '
@@ -291,6 +292,38 @@ for (const [id, m] of Object.entries(META)) Object.assign(EXERCISES[id], m);
 // The 25 extra exercises for the circuit editor (src/moreExercises.js), in the same list.
 export const BASE_EXERCISE_IDS = Object.keys(EXERCISES);
 Object.assign(EXERCISES, MORE_EXERCISES);
+
+// Pictures for the extra exercises (exact matches only; the rest show their steps alone). Credits in
+// assets/exercises/CREDITS.md.
+const BY2 = { license: 'CC BY 2.0', licenseUrl: 'https://creativecommons.org/licenses/by/2.0/' };
+const MORE_IMAGES = {
+  'glute-bridge': {
+    ...BYSA3, credit: 'Everkinetic', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Bridging_1.svg', changes: 'none',
+    srcs: [{ src: 'assets/exercises/glute-bridge-1.svg', w: 1200, h: 593 }, { src: 'assets/exercises/glute-bridge-2.svg', w: 1200, h: 593 }],
+    alt: 'Glute bridge: lying on the back with knees bent and both feet down, then hips lifted into a straight line.',
+  },
+  'decline-press-up': {
+    ...BYSA3, credit: 'Everkinetic', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Push_up_feet_elevated_2_1.svg', changes: 'none',
+    srcs: [{ src: 'assets/exercises/decline-press-up-1.svg', w: 1200, h: 838 }, { src: 'assets/exercises/decline-press-up-2.svg', w: 1200, h: 838 }],
+    alt: 'Decline press-up: hands on the floor and feet up on a bench, body straight, then lowered towards the floor.',
+  },
+  'front-plank': {
+    ...BYSA4, credit: 'utkb, wger.de exercise database', sourceUrl: 'https://wger.de/api/v2/exerciseinfo/458/', changes: 'cropped, resized',
+    srcs: [{ src: 'assets/exercises/front-plank.jpg', w: 760, h: 198 }],
+    alt: 'Front plank: forearms and toes on the floor, body in one straight line.',
+  },
+  'bird-dog': {
+    ...BY2, credit: 'PTPioneer', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Bird_dog_exercise.jpg', changes: 'cropped, resized',
+    srcs: [{ src: 'assets/exercises/bird-dog.jpg', w: 760, h: 324 }],
+    alt: 'Bird dog: on hands and knees on a mat, one arm reaching forward and the opposite leg reaching back.',
+  },
+  'reverse-plank': {
+    ...BY2, credit: 'lululemon athletica', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Putvottanasana_-_Upward_Plank_Pose_1_-_Diagonal_View.jpg', changes: 'cropped, resized',
+    srcs: [{ src: 'assets/exercises/reverse-plank.jpg', w: 760, h: 416 }],
+    alt: 'Reverse plank: sitting with hands behind, hips lifted so the body is straight from shoulders to heels.',
+  },
+};
+for (const [id, image] of Object.entries(MORE_IMAGES)) EXERCISES[id].image = image;
 
 // The four areas a circuit should cover (the add-exercise list is grouped by them).
 export const AREAS = [

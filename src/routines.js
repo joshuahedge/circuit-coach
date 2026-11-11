@@ -1,6 +1,7 @@
 // How-tos for every harder version and swap, and the guided routines (warm-ups, cool-down).
 // Kept apart from library.js so the exercise list stays readable. No burpees or mountain climbers.
-import { EXERCISES, BYSA3, BYSA4 } from './library.js';
+import { exerciseById, allExercises, BYSA3, BYSA4 } from './library.js';
+import { MORE_VARIATIONS } from './moreExercises.js';
 
 // Steps for each version or swap that is not an exercise's own base movement. `image` is set in
 // VARIATION_IMAGES (below) where an openly licensed picture exists.
@@ -137,10 +138,11 @@ export const VARIATIONS = {
 
 // The steps and cues for whatever version is being done. Falls back to the exercise's own how-to.
 export function howToFor(exerciseId, variation) {
-  const ex = EXERCISES[exerciseId];
+  const ex = exerciseById(exerciseId);
   if (!variation || variation === ex.name) return { name: ex.name, howTo: ex.howTo, cues: ex.cues, own: true };
   if (VARIATIONS[variation]) return { name: variation, ...VARIATIONS[variation], own: true };
-  const other = Object.values(EXERCISES).find((e) => e.name === variation);
+  if (MORE_VARIATIONS[variation]) return { name: variation, ...MORE_VARIATIONS[variation], own: true };
+  const other = allExercises().find((e) => e.name === variation);
   if (other) return { name: other.name, howTo: other.howTo, cues: other.cues, own: true, exerciseId: other.id };
   return { name: ex.name, howTo: ex.howTo, cues: ex.cues, own: false };
 }

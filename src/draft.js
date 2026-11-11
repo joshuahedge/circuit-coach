@@ -1,6 +1,7 @@
 // The strength session being logged. It lives in state.draft and is saved on every tap, so closing the app
 // mid-workout loses nothing. finishDraft turns it into a strength log.
 import { currentPlan, sidesFor } from './plan.js';
+import { useExercises } from './library.js';
 
 export function targetOf(p) {
   return { variation: p.variation, sets: p.sets, min: p.min, max: p.max, unit: p.unit, sides: p.sides, tempoDown: p.tempoDown, pause: p.pause, legHeavy: p.legHeavy };
@@ -44,6 +45,7 @@ function buildRows(p, last, keep = []) {
 }
 
 export function createDraft(state, sessionId, today, { nowIso = new Date().toISOString() } = {}) {
+  useExercises(state);
   const plan = currentPlan(state);
   const session = plan.sessions[sessionId];
   const checkin = state.checkins.find((c) => c.date === today);

@@ -473,3 +473,83 @@ describe('ui: coach and plan', () => {
     expect(root.textContent).toContain('Saved data could not be read');
   });
 });
+
+describe('ui: circuit editor', () => {
+  it('adds, moves and removes exercises, saves one plan version, and Undo takes it back', () => {
+    const { app, root } = mount(setupState(), '2026-11-10');
+    app.go('#/plan');
+    click(root, 'Edit Session B');
+    expect(app.route.name).toBe('circuit');
+    expect(root.querySelector('.tabbar')).toBe(null);
+    expect(root.textContent).toContain('No upper back work in this session.');
+    click(root, '+ Add an exercise');
+    const sheet = () => root.querySelector('.sheet');
+    click(sheet(), 'Back');
+    expect(sheet().textContent).toContain('In Session A.');
+    click(sheet(), 'Add Prone Y–T–W raises');
+    expect(root.querySelector('.sheet')).toBe(null);
+    expect(root.textContent).toContain('Covers legs, push, upper back and core.');
+    click(root, 'Move Prone Y–T–W raises up');
+    click(root, 'Remove Single-leg calf raise');
+    click(root, '50 min');
+    expect(currentPlan(app.state).version).toBe(1); // nothing saved until Save
+    click(root, 'Save changes');
+    const plan = currentPlan(app.state);
+    expect(plan.version).toBe(2);
+    expect(plan.reason).toBe('You edited Session B: added Prone Y–T–W raises; removed Single-leg calf raise; target 50 min');
+    expect(plan.sessions.B.exercises.map((p) => p.exerciseId)).toEqual(['sl-rdl', 'tempo-squat', 'pike-push-up', 'prone-ytw', 'side-plank']);
+    expect(plan.sessions.B.targetMin).toBe(50);
+    expect(plan.sessions.A).toEqual(currentPlan({ plans: [app.state.plans[0]] }).sessions.A);
+    expect(app.route.name).toBe('plan');
+    expect(root.textContent).toContain('Session B · about');
+    click(root, 'Undo');
+    expect(currentPlan(app.state).version).toBe(1);
+  });
+
+  it('creates your own exercise, refuses a banned one, and logs it in the next workout', () => {
+    const { app, root } = mount(setupState(), '2026-11-10');
+    app.go('#/plan');
+    click(root, 'Edit Session A');
+    click(root, '+ Add an exercise');
+    const sheet = () => root.querySelector('.sheet');
+    click(sheet(), 'Your own');
+    click(sheet(), 'Create your own exercise');
+    const name = sheet().querySelector('input[aria-label="Exercise name"]');
+    type(name, 'Burpees');
+    click(sheet(), 'Add');
+    expect(sheet().textContent).toContain('Your brief rules out burpees and mountain climbers.');
+    type(name, 'Single-leg balance');
+    click(sheet(), 'Seconds');
+    click(sheet(), 'Left and right');
+    click(sheet(), 'Legs');
+    click(sheet(), 'Add');
+    expect(app.state.customExercises.length).toBe(1);
+    expect(app.state.customExercises[0]).toEqual({ id: app.state.customExercises[0].id, name: 'Single-leg balance', unit: 'seconds', sides: true, area: 'legs', sets: 3, min: 20, max: 30 });
+    expect(root.textContent).toContain('Single-leg balance');
+    click(root, 'Save changes');
+    const p = currentPlan(app.state).sessions.A.exercises[5];
+    expect(p.variation).toBe('Single-leg balance');
+    expect(p.unit).toBe('seconds');
+    expect(p.sides).toEqual(['L', 'R']);
+    app.go('#/log/strength/A');
+    click(root, 'Start Session A');
+    const e = app.state.draft.exercises[5];
+    expect(e.rows.length).toBe(6);
+    const card = root.querySelector('section[aria-label="Single-leg balance"]');
+    expect(card.querySelector('.howto')).toBe(null);
+  });
+
+  it('Cancel with changes asks first; the plan is untouched', async () => {
+    const { app, root } = mount(setupState(), '2026-11-10');
+    app.go('#/plan/edit/A');
+    click(root, 'Remove Dead bug');
+    click(root, 'Back');
+    await tick();
+    expect(root.querySelector('.sheet').textContent).toContain('Discard your changes?');
+    click(root.querySelector('.sheet'), 'Discard');
+    await tick();
+    expect(app.route.name).toBe('plan');
+    expect(currentPlan(app.state).version).toBe(1);
+    expect(app.circuitEdit).toBe(null);
+  });
+});

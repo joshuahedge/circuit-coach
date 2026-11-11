@@ -30,6 +30,13 @@
 >   (6 moves, 5 min, per session) and a guided 4-minute cool-down is offered when every set is done
 >   (src/guide.js, timestamp-based so a locked phone catches up); a new icon (a ring of five stations with a
 >   rising chevron) replaces the old one with the running dot.
+> - 1.2 (11 Nov 2026, owner approved in chat): circuit editor (`#/plan/edit/<session>`, src/ui/circuitEditor.js,
+>   src/circuit.js): add, remove, reorder, change numbers, per-session time target 40/50/60 (`targetMin`, used by
+>   the coach's extra-set rule and the block review's long/short rules instead of a fixed 40); Save = one plan
+>   version (`withSession`) with Undo. 25 more built-in exercises (src/moreExercises.js; every exercise now has
+>   `area`, `focus`, `note`, `start`). Your own exercises (`state.customExercises`, registered via
+>   `useExercises`; the coach adds reps or 5 s up to a cap, then a set). A balance check flags a session with no
+>   legs, push, upper-back or core exercise and offers two built-in ones.
 
 Approved in chat on 7 Nov 2026. Source: a private training brief (kept out of this public repo). This spec
 records what the app must do and the decisions made with the owner. Personal body measurements are never

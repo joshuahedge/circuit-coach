@@ -43,7 +43,10 @@ there will not show up in the installed app.
 - **Coach:** suggested changes with the numbers behind them, Accept / Edit / Reject (with Undo), where
   each exercise stands (how close it is to its next step, or why it is waiting), notes,
   plan history (go back to any version), and **Copy summary for Claude** for a second opinion in a chat.
-- **Plan:** the exercises with how-to steps, pictures and swaps, your training days, profile, backup and
+- **Plan:** Edit Session A or B to add, remove or reorder exercises (35 built in, grouped by legs, push,
+  upper back and core, plus your own), change their numbers and set a 40, 50 or 60-minute target. The editor
+  shows the estimated time and warns when a session leaves an area out. Save makes one plan version, with
+  Undo. Also the exercises with how-to steps, pictures and swaps, your training days, profile, backup and
   restore, and image credits.
 
 ## How the programme evolves

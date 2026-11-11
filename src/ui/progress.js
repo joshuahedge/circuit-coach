@@ -2,7 +2,7 @@
 import { h, topbar } from './dom.js';
 import { lineChart } from './chart.js';
 import { exerciseSeries, loggedExerciseIds, weeklyTotals, effortSeries, benchmarkSeries } from '../stats.js';
-import { EXERCISES } from '../library.js';
+import { exerciseById, EXERCISES } from '../library.js';
 import { formatShort } from '../dates.js';
 
 const dm = (iso) => `${Number(iso.slice(8, 10))}/${Number(iso.slice(5, 7))}`;
@@ -54,10 +54,10 @@ export function progressView(app) {
             h('select', {
               'aria-label': 'Exercise', style: { marginBottom: '10px' }, value: ui.exercise,
               onchange: (e) => { ui.exercise = e.target.value; app.render(); },
-            }, logged.map((id) => h('option', { value: id }, EXERCISES[id] ? EXERCISES[id].name : id))),
+            }, logged.map((id) => h('option', { value: id }, exerciseById(id) ? exerciseById(id).name : id))),
             exSeries.length
               ? lineChart({
-                label: `${EXERCISES[ui.exercise].name}: average ${exUnit} per set`,
+                label: `${exerciseById(ui.exercise).name}: average ${exUnit} per set`,
                 points: exSeries.map((p) => ({ date: p.date, value: p.avg, title: `${formatShort(p.date)}: ${p.avg} ${exUnit} avg, best ${p.best} (${p.variation})` })),
                 format: (v) => (Number.isInteger(v) ? String(v) : v.toFixed(1)),
                 valueHeader: `Avg ${exUnit}`,

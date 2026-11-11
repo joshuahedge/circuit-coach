@@ -6,7 +6,7 @@ import { howToFor } from '../routines.js';
 import { unlockSound } from './sound.js';
 import { completeSet, upNext } from '../timer.js';
 import { openSheet, confirmSheet } from './sheet.js';
-import { EXERCISES, WARMUPS, COOLDOWN, REST_NOTE, SAFETY_NOTE } from '../library.js';
+import { exerciseById, EXERCISES, WARMUPS, COOLDOWN, REST_NOTE, SAFETY_NOTE } from '../library.js';
 import { currentPlan, estimateMinutes, prescriptionLabel, tempoLabel } from '../plan.js';
 import { createDraft, finishDraft, draftProgress, elapsedMinutes, swapForToday } from '../draft.js';
 import { coachReview } from '../coach.js';
@@ -18,9 +18,11 @@ const SKIP_REASONS = ['Short on time', 'Tired', 'Sore', 'Pain', 'No space', 'Oth
 
 function howTo(exerciseId, variation) {
   const steps = howToFor(exerciseId, variation);
+  const fig = exerciseFigure(exerciseId, variation);
+  if (!steps.howTo.length && !fig) return null; // your own exercises have no steps
   return h('details', { class: 'howto' },
     h('summary', null, 'How to'),
-    exerciseFigure(exerciseId, variation),
+    fig,
     h('ol', null, steps.howTo.map((t) => h('li', null, t))));
 }
 
@@ -125,7 +127,7 @@ function setRow(app, e, row, ref, isNext) {
 }
 
 function exerciseMenu(app, e) {
-  const ex = EXERCISES[e.exerciseId];
+  const ex = exerciseById(e.exerciseId);
   const t = e.target;
   openSheet(app, e.variation, (close) => {
     const swapTo = (name) => {
@@ -153,7 +155,7 @@ function exerciseMenu(app, e) {
 }
 
 function exerciseCard(app, e, ei, next) {
-  const ex = EXERCISES[e.exerciseId];
+  const ex = exerciseById(e.exerciseId);
   const t = e.target;
   const skipped = e.status === 'skipped';
   const card = h('section', { class: `ex-card${next && next.ei === ei ? ' is-current' : ''}${skipped ? ' skipped' : ''}`, 'aria-label': e.variation });

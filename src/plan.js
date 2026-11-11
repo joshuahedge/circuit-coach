@@ -1,6 +1,6 @@
-// The training plan: Sessions A and B as lists of prescriptions, kept as numbered plan versions.
+// The training plan: sessions (A, B, ...) as lists of prescriptions, kept as numbered plan versions.
 // Functions here never mutate their inputs.
-import { EXERCISES } from './library.js';
+import { exerciseById } from './library.js';
 
 const SESSION_INFO = {
   A: { name: 'Session A', focus: 'Unilateral strength, push and trunk stability' },
@@ -8,7 +8,7 @@ const SESSION_INFO = {
 };
 
 function rx(exerciseId, sets, min, max, extra = {}) {
-  const ex = EXERCISES[exerciseId];
+  const ex = exerciseById(exerciseId);
   return {
     exerciseId,
     variation: extra.variation || ex.name,
@@ -71,7 +71,7 @@ export function currentPlan(state) {
 // (a two-legged swap, an archer press-up) uses them; moving off such a version goes back to the exercise's;
 // otherwise the current sides stay, so a lunge logged "in total" stays that way.
 export function sidesFor(exerciseId, variation, from = null) {
-  const ex = EXERCISES[exerciseId];
+  const ex = exerciseById(exerciseId);
   const own = (name) => [...ex.ladder, ...ex.swaps].find((x) => x.name === name && x.sides !== undefined);
   const to = own(variation);
   if (to) return to.sides;
@@ -123,10 +123,34 @@ export function estimateMinutes(session) {
 }
 
 function copySessions(sessions) {
-  return {
-    A: { ...sessions.A, exercises: sessions.A.exercises.map((p) => ({ ...p })) },
-    B: { ...sessions.B, exercises: sessions.B.exercises.map((p) => ({ ...p })) },
+  return Object.fromEntries(Object.entries(sessions).map(([id, s]) => [id, { ...s, exercises: s.exercises.map((p) => ({ ...p })) }]));
+}
+
+// Each session's time target in minutes (40, 50 or 60; 40 unless you changed it).
+export const TARGET_CHOICES = [40, 50, 60];
+export function targetMinutes(session) {
+  return (session && session.targetMin) || 40;
+}
+
+// An exercise's starting prescription when it is added to a circuit.
+export function startingPrescription(exerciseId, today) {
+  const ex = exerciseById(exerciseId);
+  const s = ex.start || { sets: 3, min: 8, max: 12, tempoDown: 0, pause: 0, maxSets: 4 };
+  return rx(exerciseId, s.sets, s.min, s.max, { since: today, tempoDown: s.tempoDown, pause: s.pause, maxSets: s.maxSets });
+}
+
+// A whole session replaced at once (the circuit editor's Save). Unchanged prescriptions keep their dates.
+export function withSession(plan, sessionId, session, { today, reason }) {
+  const sessions = copySessions(plan.sessions);
+  const before = plan.sessions[sessionId] ? plan.sessions[sessionId].exercises : [];
+  sessions[sessionId] = {
+    ...session,
+    exercises: session.exercises.map((p) => {
+      const old = before.find((o) => o.exerciseId === p.exerciseId);
+      return old && samePrescription(old, p) ? { ...p, since: old.since } : { ...p, since: today };
+    }),
   };
+  return { version: plan.version + 1, effectiveFrom: today, createdAt: today, reason, acceptedByUser: true, sessions };
 }
 
 export function samePrescription(a, b) {
@@ -145,9 +169,9 @@ export function revertPlan(state, version, today) {
   const target = state.plans.find((p) => p.version === version);
   const current = currentPlan(state);
   const sessions = copySessions(target.sessions);
-  for (const id of ['A', 'B']) {
+  for (const id of Object.keys(sessions)) {
     sessions[id].exercises = sessions[id].exercises.map((p) => {
-      const now = current.sessions[id].exercises.find((c) => c.exerciseId === p.exerciseId);
+      const now = current.sessions[id] && current.sessions[id].exercises.find((c) => c.exerciseId === p.exerciseId);
       return now && samePrescription(now, p) ? { ...p, since: now.since } : { ...p, since: today };
     });
   }
@@ -158,6 +182,6 @@ export function revertPlan(state, version, today) {
 }
 
 export function ladderIndex(p) {
-  const ex = EXERCISES[p.exerciseId];
+  const ex = exerciseById(p.exerciseId);
   return ex ? ex.ladder.findIndex((l) => l.name === p.variation) : -1;
 }

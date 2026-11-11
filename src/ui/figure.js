@@ -1,6 +1,6 @@
 // Exercise pictures: openly licensed images stored in the app (so they work offline), always credited.
 import { h } from './dom.js';
-import { EXERCISES } from '../library.js';
+import { EXERCISES, exerciseById, allExercises } from '../library.js';
 import { VARIATION_IMAGES } from '../routines.js';
 
 function creditLine(im) {
@@ -14,9 +14,9 @@ function creditLine(im) {
 
 // The picture for the version being done: its own where one exists, otherwise the exercise's, labelled.
 export function exerciseFigure(exerciseId, variation = null) {
-  const ex = EXERCISES[exerciseId];
+  const ex = exerciseById(exerciseId);
   if (!ex) return null;
-  const other = variation && variation !== ex.name ? Object.values(EXERCISES).find((e) => e.name === variation) : null;
+  const other = variation && variation !== ex.name ? allExercises().find((e) => e.name === variation) : null;
   const own = variation && variation !== ex.name ? VARIATION_IMAGES[variation] || (other && other.image) || null : null;
   const im = own || ex.image;
   if (!im) return null;

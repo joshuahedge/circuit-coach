@@ -1,13 +1,12 @@
 // The coach: fixed, explainable rules over the logs. It never changes the plan itself; it returns
 // suggestions (each with a reason and the logs behind it) and notes. Accepting one makes a new plan version.
-import { EXERCISES, SAFETY_NOTE } from './library.js';
+import { exerciseById, useExercises, SAFETY_NOTE } from './library.js';
 import {
-  currentPlan, estimateMinutes, ladderIndex, prescriptionLabel, sideText, tempoLabel, withPrescription,
+  currentPlan, estimateMinutes, ladderIndex, prescriptionLabel, sideText, targetMinutes, tempoLabel, withPrescription,
 } from './plan.js';
 import { blockInfo, scheduleWarnings } from './schedule.js';
 import { daysBetween, formatShort, weekStart } from './dates.js';
 
-const MAX_MINUTES = 40;
 const PRIORITY = { pain: 1, effort: 3, missed: 4, progress: 5 };
 
 const within = (date, today, days) => {
@@ -18,7 +17,7 @@ const byDate = (a, b) => (a.date === b.date ? String(a.createdAt || a.id).locale
 const avg = (xs) => (xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : null);
 const isNum = (x) => typeof x === 'number' && Number.isFinite(x);
 const sidesOf = (t) => (t.sides && t.sides.length ? t.sides : [null]);
-const exName = (p) => p.variation || EXERCISES[p.exerciseId].name;
+const exName = (p) => p.variation || exerciseById(p.exerciseId).name;
 const dateList = (logs) => logs.map((l) => formatShort(l.date)).join(' and ');
 
 export function recoveryFlags(state, today) {
@@ -124,7 +123,7 @@ function loggedSessionMinutes(state, sessionId) {
 }
 
 function leverStep(ctx, sessionId, session, p) {
-  const ex = EXERCISES[p.exerciseId];
+  const ex = exerciseById(p.exerciseId);
   for (const lever of ex.levers) {
     if (lever === 'tempo' && p.unit === 'reps' && (p.tempoDown || 0) < 5) {
       const n = (p.tempoDown || 0) + 1;
@@ -146,7 +145,8 @@ function leverStep(ctx, sessionId, session, p) {
     }
     if (lever === 'sets' && p.sets < (p.maxSets || 3)) {
       const bigger = { ...session, exercises: session.exercises.map((x) => (x.exerciseId === p.exerciseId ? { ...x, sets: x.sets + 1 } : x)) };
-      if (estimateMinutes(bigger) <= MAX_MINUTES && loggedSessionMinutes(ctx.state, sessionId) <= MAX_MINUTES) {
+      const limit = targetMinutes(session);
+      if (estimateMinutes(bigger) <= limit && loggedSessionMinutes(ctx.state, sessionId) <= limit) {
         return { to: { ...p, sets: p.sets + 1 }, change: 'add a set' };
       }
     }
@@ -156,7 +156,7 @@ function leverStep(ctx, sessionId, session, p) {
 
 function progressStep(ctx, sessionId, session, p, ready) {
   const { phase } = ctx.block;
-  const ex = EXERCISES[p.exerciseId];
+  const ex = exerciseById(p.exerciseId);
   const repsStep = (allowTwo) => {
     if (p.unit === 'seconds') {
       if (p.max + 5 > ex.cap) return null;
@@ -206,7 +206,7 @@ function exerciseCandidates(ctx, sessionId, session, p) {
   const out = [];
   const entries = matchingEntries(ctx.state, sessionId, p);
   const any = anyEntries(ctx.state, sessionId, p);
-  const ex = EXERCISES[p.exerciseId];
+  const ex = exerciseById(p.exerciseId);
   const name = exName(p);
 
   // Pain on this exercise in its most recent log, whether it was done, swapped or skipped.
@@ -339,6 +339,7 @@ function notesFor(ctx) {
 }
 
 export function coachReview(state, today) {
+  useExercises(state);
   if (!state.setupDone || !state.plans.length) return { suggestions: [], notes: [], block: blockInfo(state, today) };
   const plan = currentPlan(state);
   const ctx = { state, today, plan, block: blockInfo(state, today), recovery: recoveryFlags(state, today) };
@@ -418,6 +419,7 @@ export function startNextBlock(state, today) {
 // Where each exercise stands: one plain line per exercise, so progress is visible between suggestions.
 // tone: 'good' (on its way or ready), 'warn' (on hold), 'neutral'.
 export function exerciseStanding(state, today) {
+  useExercises(state);
   if (!state.setupDone || !state.plans.length) return [];
   const plan = currentPlan(state);
   const block = blockInfo(state, today);

@@ -14,6 +14,8 @@ import { coachView } from './ui/coach.js';
 import { planView, pickBackupFile } from './ui/plan.js';
 import { sessionSummaryView } from './ui/sessionSummary.js';
 import { blockReviewView } from './ui/blockReview.js';
+import { circuitEditorView } from './ui/circuitEditor.js';
+import { useExercises } from './library.js';
 
 export function parseRoute(hash) {
   const [a, b, c] = String(hash || '').replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
@@ -22,6 +24,7 @@ export function parseRoute(hash) {
   if (a === 'log' && b === 'benchmark') return { name: 'benchmark', id: c || null };
   if (a === 'log' && b === 'summary' && c) return { name: 'summary', id: c };
   if (a === 'coach' && b === 'block') return { name: 'block' };
+  if (a === 'plan' && b === 'edit' && /^[A-Z]$/.test(c || '')) return { name: 'circuit', sessionId: c };
   if (['week', 'log', 'progress', 'coach', 'plan'].includes(a)) return { name: a, section: b || null };
   return { name: 'week' };
 }
@@ -31,6 +34,7 @@ const routeKey = (r) => JSON.stringify(r);
 const VIEWS = {
   week: weekView, log: logView, strength: strengthView, checkin: checkinView,
   benchmark: benchmarkView, progress: progressView, coach: coachView, plan: planView, summary: sessionSummaryView, block: blockReviewView,
+  circuit: circuitEditorView,
 };
 
 const TABS = [
@@ -40,7 +44,7 @@ const TABS = [
   { name: 'coach', label: 'Coach', icon: 'coach' },
   { name: 'plan', label: 'Plan', icon: 'plan' },
 ];
-const TAB_OF = { strength: 'log', checkin: 'log', benchmark: 'log', summary: 'log', block: 'coach' };
+const TAB_OF = { strength: 'log', checkin: 'log', benchmark: 'log', summary: 'log', block: 'coach', circuit: 'plan' };
 
 function tabbar(app) {
   const active = TAB_OF[app.route.name] || app.route.name;
@@ -145,6 +149,7 @@ export function createApp({ root, storage, now = () => new Date(), useHash = tru
     return true;
   };
   app.render = () => {
+    useExercises(app.state); // your own exercises, for every lookup on this screen
     for (const fn of app.cleanups.splice(0)) {
       try { fn(); } catch (e) { /* ignore */ }
     }
@@ -156,6 +161,7 @@ export function createApp({ root, storage, now = () => new Date(), useHash = tru
     let view;
     let tabs = true;
     if (!app.state) { view = recoveryView(app); tabs = false; } else if (!app.state.setupDone) { view = setupView(app); tabs = false; } else view = VIEWS[app.route.name](app);
+    if (app.route.name === 'circuit') tabs = false; // editing a circuit: Save or Cancel, nothing else to tap
     // During a workout the tab bar gives way to the Now dock: one task, nothing else to tap by mistake.
     const focus = tabs && app.route.name === 'strength' && app.state.draft && app.state.draft.sessionId === app.route.sessionId;
     const scrolled = app.frame.scrollTop;

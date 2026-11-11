@@ -23,6 +23,8 @@ export const COOLDOWN = 'Gentle hip-flexor stretch, calf stretch, 90/90 hip rota
 
 export const REST_NOTE = 'Rest 30–60 s between exercises and 60–90 s between rounds: enough to keep technique strong.';
 
+import { MORE_EXERCISES } from './moreExercises.js';
+
 const LR = ['L', 'R'];
 
 export const EXERCISES = {
@@ -269,6 +271,67 @@ const IMAGES = {
   },
 };
 for (const [id, image] of Object.entries(IMAGES)) EXERCISES[id].image = image;
+
+// Where each exercise sits (for the add-exercise list, the balance check and like-for-like swaps), a line for
+// the add-exercise list, and its starting numbers when added to a circuit (the starting plan's numbers).
+const META = {
+  'reverse-lunge': { area: 'legs', focus: 'single-leg', note: 'Single-leg strength, stepping back.', start: { sets: 3, min: 8, max: 10, tempoDown: 2, pause: 0, maxSets: 4 } },
+  'press-up': { area: 'push', focus: 'chest', note: 'Chest, shoulders and triceps.', start: { sets: 3, min: 8, max: 12, tempoDown: 2, pause: 0, maxSets: 4 } },
+  'sl-glute-bridge': { area: 'legs', focus: 'glutes', note: 'Glutes and hamstrings, one leg at a time.', start: { sets: 2, min: 5, max: 6, tempoDown: 2, pause: 2, maxSets: 3 } },
+  'prone-ytw': { area: 'back', focus: 'upper-back', note: 'Upper back and shoulder blades, lying face down.', start: { sets: 2, min: 6, max: 8, tempoDown: 2, pause: 0, maxSets: 3 } },
+  'dead-bug': { area: 'core', focus: 'front-core', note: 'Deep core control, lying on your back.', start: { sets: 3, min: 8, max: 10, tempoDown: 2, pause: 0, maxSets: 4 } },
+  'sl-rdl': { area: 'legs', focus: 'hinge', note: 'Hamstrings, glutes and balance.', start: { sets: 3, min: 8, max: 8, tempoDown: 3, pause: 0, maxSets: 4 } },
+  'tempo-squat': { area: 'legs', focus: 'squat', note: 'Slow squats for the thighs.', start: { sets: 3, min: 10, max: 12, tempoDown: 3, pause: 1, maxSets: 4 } },
+  'pike-push-up': { area: 'push', focus: 'shoulders', note: 'Shoulders, with your hips high.', start: { sets: 2, min: 6, max: 8, tempoDown: 2, pause: 0, maxSets: 3 } },
+  'sl-calf-raise': { area: 'legs', focus: 'calves', note: 'Calves and ankles, one foot at a time.', start: { sets: 3, min: 10, max: 12, tempoDown: 3, pause: 1, maxSets: 4 } },
+  'side-plank': { area: 'core', focus: 'side-core', note: 'The side of your trunk, held.', start: { sets: 2, min: 25, max: 40, tempoDown: 0, pause: 0, maxSets: 3 } },
+};
+for (const [id, m] of Object.entries(META)) Object.assign(EXERCISES[id], m);
+
+// The 25 extra exercises for the circuit editor (src/moreExercises.js), in the same list.
+export const BASE_EXERCISE_IDS = Object.keys(EXERCISES);
+Object.assign(EXERCISES, MORE_EXERCISES);
+
+// The four areas a circuit should cover (the add-exercise list is grouped by them).
+export const AREAS = [
+  { id: 'legs', label: 'Legs and hips' },
+  { id: 'push', label: 'Push, shoulders and arms' },
+  { id: 'back', label: 'Upper back' },
+  { id: 'core', label: 'Core' },
+];
+
+// Your own exercises live in the saved data (state.customExercises: { id, name, unit, sides, area, sets,
+// min, max }). They are registered here so every lookup finds them like a built-in one. The coach adds reps
+// (or 5 s) up to the cap, then an extra set; there are no harder versions, swaps or how-to steps.
+const CUSTOM = new Map();
+
+export function customExercise(c) {
+  const seconds = c.unit === 'seconds';
+  return {
+    id: c.id, name: c.name, unit: seconds ? 'seconds' : 'reps', sides: c.sides ? LR : null,
+    legHeavy: c.area === 'legs', cap: seconds ? 90 : 25, levers: ['sets'], ladder: [], swaps: [],
+    howTo: [], cues: '', area: c.area || 'core', focus: 'own', note: 'Your own exercise.', custom: true,
+    start: { sets: c.sets || 3, min: c.min, max: c.max, tempoDown: 0, pause: 0, maxSets: 4 },
+  };
+}
+
+export function setCustomExercises(list) {
+  CUSTOM.clear();
+  for (const c of list || []) CUSTOM.set(c.id, customExercise(c));
+}
+
+// Call with the state before any lookup that may meet your own exercises.
+export function useExercises(state) {
+  setCustomExercises(state && state.customExercises);
+}
+
+export function exerciseById(id) {
+  return EXERCISES[id] || CUSTOM.get(id) || null;
+}
+
+export function allExercises() {
+  return [...Object.values(EXERCISES), ...CUSTOM.values()];
+}
 
 // Used by the benchmark screen and tests, not programmed in a session.
 export const FRONT_PLANK_NOTE = 'Front plank: forearms down, body in one line, strict form. Cap the test at 2 minutes.';

@@ -25,7 +25,7 @@ describe('pwa', () => {
     expect(files.includes('./icons/apple-touch-icon.png')).toBe(true);
     const { EXERCISES } = await import('../src/library.js');
     const { VARIATION_IMAGES } = await import('../src/routines.js');
-    for (const im of [...Object.values(EXERCISES).map((ex) => ex.image), ...Object.values(VARIATION_IMAGES)]) {
+    for (const im of [...Object.values(EXERCISES).map((ex) => ex.image).filter(Boolean), ...Object.values(VARIATION_IMAGES)]) {
       for (const x of im.srcs) expect(files.includes(`./${x.src}`)).toBe(true);
     }
   });

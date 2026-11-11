@@ -36,6 +36,7 @@ export function emptyState(now = new Date()) {
     checkins: [],
     benchmarks: [],
     decisions: [],
+    customExercises: [],
     draft: null,
     settings: { lastBackupAt: null, installHintDismissed: false, restShort: 45, restLong: 75, sound: true },
   };
@@ -48,7 +49,7 @@ export function migrate(raw) {
   for (const k of ['profile', 'conventions', 'schedule', 'block', 'settings']) {
     out[k] = { ...base[k], ...(raw[k] || {}) };
   }
-  for (const k of ['plans', 'strengthLogs', 'checkins', 'benchmarks', 'decisions']) {
+  for (const k of ['plans', 'strengthLogs', 'checkins', 'benchmarks', 'decisions', 'customExercises']) {
     out[k] = Array.isArray(raw[k]) ? raw[k] : [];
   }
   if (out.draft === undefined) out.draft = null;

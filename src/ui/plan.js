@@ -5,8 +5,8 @@ import { exerciseFigure, imageCredits } from './figure.js';
 import { howToFor } from '../routines.js';
 import { openSheet, confirmSheet } from './sheet.js';
 import { openRxEditor, copySummary } from './coach.js';
-import { EXERCISES, WARMUPS, COOLDOWN, REST_NOTE, LIMITATION_NOTE, SAFETY_NOTE } from '../library.js';
-import { currentPlan, estimateMinutes, prescriptionLabel, tempoLabel, withPrescription, sidesFor } from '../plan.js';
+import { exerciseById, EXERCISES, WARMUPS, COOLDOWN, REST_NOTE, LIMITATION_NOTE, SAFETY_NOTE } from '../library.js';
+import { currentPlan, estimateMinutes, prescriptionLabel, tempoLabel, withPrescription, sidesFor, targetMinutes } from '../plan.js';
 import { scheduleWarnings } from '../schedule.js';
 import { DAY_KEYS, DAY_SHORT, formatShort } from '../dates.js';
 import { emptyState, makeBackup, readBackup } from '../store.js';
@@ -19,7 +19,7 @@ function changePlan(app, sessionId, from, to, reason) {
 }
 
 function exerciseSheet(app, sessionId, p) {
-  const ex = EXERCISES[p.exerciseId];
+  const ex = exerciseById(p.exerciseId);
   openSheet(app, p.variation, (close) => h('div', null,
     exerciseFigure(p.exerciseId, p.variation),
     h('div', { class: 'card' },
@@ -36,28 +36,29 @@ function exerciseSheet(app, sessionId, p) {
         });
       },
     }, 'Change numbers or version'),
-    h('div', { class: 'section-title' }, 'Swaps'),
-    h('div', { class: 'list' }, ex.swaps.map((sw) => h('div', { class: 'list-item' },
+    ex.swaps.length ? h('div', { class: 'section-title' }, 'Swaps') : null,
+    ex.swaps.length ? h('div', { class: 'list' }, ex.swaps.map((sw) => h('div', { class: 'list-item' },
       h('span', { class: 'grow' }, h('b', null, sw.name), h('div', { class: 'small muted' }, sw.note)),
       h('button', {
         class: 'btn small', type: 'button',
         onclick: () => { close(); changePlan(app, sessionId, p, { ...p, variation: sw.name, sides: sidesFor(p.exerciseId, sw.name, p) }, `You swapped ${p.variation} for ${sw.name}`); },
-      }, 'Use')))),
-    h('div', { class: 'section-title' }, 'Harder versions, in order'),
-    h('div', { class: 'list' }, ex.ladder.map((l) => h('div', { class: 'list-item' },
+      }, 'Use')))) : null,
+    ex.ladder.length ? h('div', { class: 'section-title' }, 'Harder versions, in order') : null,
+    ex.ladder.length ? h('div', { class: 'list' }, ex.ladder.map((l) => h('div', { class: 'list-item' },
       h('span', { class: 'grow' }, h('b', null, l.name), h('div', { class: 'small muted' }, `starts at ${l.min}–${l.max}${ex.unit === 'seconds' ? ' s' : ''}`)),
-      l.name === p.variation ? h('span', { class: 'tag good' }, 'current') : null)))));
+      l.name === p.variation ? h('span', { class: 'tag good' }, 'current') : null))) : null));
 }
 
 function sessionCard(app, plan, id) {
   const s = plan.sessions[id];
   return h('div', null,
-    h('div', { class: 'section-title' }, `Session ${id} · about ${estimateMinutes(s)} min`),
+    h('div', { class: 'section-title' }, `Session ${id} · about ${estimateMinutes(s)} min · target ${targetMinutes(s)}`),
     h('div', { class: 'card accent-strength tight' }, h('b', null, s.focus), h('p', { class: 'small muted' }, `Warm-up: ${WARMUPS[id]}`)),
     h('div', { class: 'list' }, s.exercises.map((p) => h('button', { class: 'list-item', type: 'button', onclick: () => exerciseSheet(app, id, p) },
       h('span', { class: 'grow' }, h('b', null, p.variation),
         h('div', { class: 'small muted' }, [prescriptionLabel(p), tempoLabel(p)].filter(Boolean).join(' · '))),
-      h('span', { class: 'chev', html: ICONS.chev })))));
+      h('span', { class: 'chev', html: ICONS.chev })))),
+    h('button', { class: 'btn block', type: 'button', onclick: () => app.go(`#/plan/edit/${id}`) }, `Edit Session ${id}`));
 }
 
 function scheduleSheet(app) {
@@ -193,7 +194,7 @@ export function planView(app) {
           h('span', { class: 'grow' }, h('b', null, 'About you'), h('div', { class: 'small muted' }, body || 'Not set')), h('span', { class: 'chev', html: ICONS.chev })),
         h('div', { class: 'list-item' }, h('span', { class: 'grow' }, h('b', null, 'Goals'), h('div', { class: 'small muted' }, prof.goals.join(' · ')))),
         h('div', { class: 'list-item' }, h('span', { class: 'grow' }, h('b', null, 'Kit and limits'),
-          h('div', { class: 'small muted' }, `Bodyweight and a mat · ${prof.sessionMinutes.join('–')} min sessions · never ${prof.disliked.join(' or ')}`)))),
+          h('div', { class: 'small muted' }, `Bodyweight, a mat and household furniture · sessions ${Object.keys(plan.sessions).map((id) => `${id} ${targetMinutes(plan.sessions[id])}`).join(', ')} min · never ${prof.disliked.join(' or ')}`)))),
 
       h('div', { class: 'section-title' }, 'Your data'),
       h('div', { class: 'card' },

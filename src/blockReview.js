@@ -1,15 +1,13 @@
 // End of block: how the block went, and a short list of changes for the next block (each with a reason,
 // each optional). Only what needs changing: stalled exercises, repeated pain, sessions too long or short.
 // Nothing changes until the owner starts the next block with the changes they kept.
-import { EXERCISES, SAFETY_NOTE } from './library.js';
-import { currentPlan, estimateMinutes, ladderIndex, prescriptionLabel, tempoLabel } from './plan.js';
+import { exerciseById, useExercises, SAFETY_NOTE } from './library.js';
+import { currentPlan, estimateMinutes, ladderIndex, prescriptionLabel, targetMinutes, tempoLabel } from './plan.js';
 import { blockInfo } from './schedule.js';
 import { daysBetween } from './dates.js';
 import { startNextBlock } from './coach.js';
 
-const MAX_MINUTES = 40;
-const LONG_MINUTES = 42;
-const SHORT_MINUTES = 30;
+// A session runs long above its time target + 2 minutes, and short below the target - 10.
 const PER_SESSION = 2;
 const PRIORITY = { pain: 1, long: 2, stalled: 3, short: 4 };
 
@@ -29,6 +27,7 @@ function entryAvg(e) {
 }
 
 export function blockSummary(state, today) {
+  useExercises(state);
   const info = blockInfo(state, today);
   const start = state.block.startDate;
   const plan = currentPlan(state);
@@ -114,7 +113,7 @@ export function nextBlockProposals(state, today) {
     const cands = [];
     for (const ex of summary.exercises.filter((e) => e.sessionId === sessionId)) {
       const { p } = ex;
-      const lib = EXERCISES[p.exerciseId];
+      const lib = exerciseById(p.exerciseId);
       if (ex.painCount >= 2) {
         const swap = lib.swaps.find((s) => s.name !== p.variation);
         if (swap) {
@@ -144,18 +143,19 @@ export function nextBlockProposals(state, today) {
       }
     }
     const mins = summary.sessionMinutes[sessionId];
-    if (mins !== null && mins > LONG_MINUTES) {
+    const goal = targetMinutes(session);
+    if (mins !== null && mins > goal + 2) {
       const target = session.exercises.filter((p) => p.sets > 2).sort((a, b) => b.sets - a.sets)[0];
       if (target) {
         cands.push(proposal('long', n, sessionId, target, { ...target, sets: target.sets - 1 }, `${target.variation}: one set fewer`,
-          `Session ${sessionId} averaged ${Math.round(mins)} minutes this block, over your 35–40. One set fewer on ${target.variation} brings it back.`));
+          `Session ${sessionId} averaged ${Math.round(mins)} minutes this block, over your ${goal}-minute target. One set fewer on ${target.variation} brings it back.`));
       }
-    } else if (mins !== null && mins < SHORT_MINUTES && consistency >= 1) {
+    } else if (mins !== null && mins < goal - 10 && consistency >= 1) {
       const target = [...session.exercises].filter((p) => p.sets < (p.maxSets || 3)).sort((a, b) => a.sets - b.sets)
-        .find((p) => estimateMinutes(withExtraSet(session, p.exerciseId)) <= MAX_MINUTES);
+        .find((p) => estimateMinutes(withExtraSet(session, p.exerciseId)) <= goal);
       if (target) {
         cands.push(proposal('short', n, sessionId, target, { ...target, sets: target.sets + 1 }, `${target.variation}: one more set`,
-          `Session ${sessionId} averaged ${Math.round(mins)} minutes and you did every session. One more set on ${target.variation} uses more of your 35–40 minutes.`));
+          `Session ${sessionId} averaged ${Math.round(mins)} minutes and you did every session. One more set on ${target.variation} uses more of your ${goal} minutes.`));
       }
     }
     cands.sort((a, b) => a.priority - b.priority);

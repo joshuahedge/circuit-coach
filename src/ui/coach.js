@@ -3,7 +3,7 @@ import { h, fill, topbar, stepper, field } from './dom.js';
 import { openSheet, confirmSheet } from './sheet.js';
 import { coachReview, acceptSuggestion, rejectSuggestion, dismissNote, canUndoDecision, undoDecision, exerciseStanding } from '../coach.js';
 import { currentPlan, prescriptionLabel, revertPlan, tempoLabel, sidesFor } from '../plan.js';
-import { EXERCISES } from '../library.js';
+import { exerciseById, EXERCISES } from '../library.js';
 import { buildSummary } from '../summary.js';
 import { formatShort } from '../dates.js';
 
@@ -14,7 +14,7 @@ export function rxText(p) {
 
 // Editor for one prescription. onSave(newPrescription) gets a full copy.
 export function openRxEditor(app, { title, p, onSave, saveLabel = 'Save' }) {
-  const ex = EXERCISES[p.exerciseId];
+  const ex = exerciseById(p.exerciseId);
   const d = { ...p };
   openSheet(app, title, (close) => {
     const body = h('div');

@@ -1,5 +1,5 @@
 import { describe, it, expect } from './harness.js';
-import { EXERCISES, isBannedName, WARMUPS, COOLDOWN } from '../src/library.js';
+import { EXERCISES, BASE_EXERCISE_IDS, isBannedName, WARMUPS, COOLDOWN } from '../src/library.js';
 import { VARIATION_IMAGES } from '../src/routines.js';
 import { exerciseFigure } from '../src/ui/figure.js';
 import {
@@ -26,10 +26,11 @@ describe('library', () => {
     expect(allNames().filter(isBannedName)).toEqual([]);
   });
 
-  it('every exercise has a credited picture with a description', () => {
+  it('every picture is credited and described; the original ten all have one', () => {
     for (const ex of Object.values(EXERCISES)) {
       const im = ex.image;
-      expect(Boolean(im && im.srcs && im.srcs.length)).toBe(true);
+      if (!im) { expect(BASE_EXERCISE_IDS.includes(ex.id)).toBe(false); continue; }
+      expect(Boolean(im.srcs && im.srcs.length)).toBe(true);
       expect(im.alt.length).toBeGreaterThan(20);
       for (const x of im.srcs) expect(/^assets\/exercises\/[a-z0-9-]+\.(svg|jpg|png)$/.test(x.src)).toBe(true);
       if (!im.own) {
